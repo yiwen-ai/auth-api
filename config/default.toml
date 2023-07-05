@@ -1,0 +1,32 @@
+env = "test"                  # "test", "dev", "prod"
+home = "http://www.yiwen.ltd"
+
+[log]
+# Log level: "trace", "debug", "info", "warn", "error"
+level = "info"
+
+[server]
+# The address to bind to.
+addr = ":8080"
+# The maximum number of seconds to wait for graceful shutdown.
+graceful_shutdown = 10
+
+[cookie]
+# session cookie
+name_prefix = "YW"
+domain = "yiwen.ltd"
+secure = false
+expires_in = 2592000 # 60*60*24*30 seconds
+
+[userbase]
+host = "http://127.0.0.1:8080"
+
+[keys]
+cwt_pub = "./keys/ed25519-token.pub"
+oauth2_state = "./keys/hmac-state.key"
+
+[providers]
+[providers.github]
+client_id = "YOUR_CLIENT_ID"
+client_secret = "YOUR_CLIENT_SECRET"
+scopes = ["SCOPE1", "SCOPE2"]
