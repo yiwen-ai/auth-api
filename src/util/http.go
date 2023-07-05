@@ -157,8 +157,6 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		return fmt.Errorf("RequestCBOR %q failed, code: %d, error: %v, body: %s",
 			api, resp.StatusCode, err, string(data))
 	}
-	fmt.Println(cbor.Diagnose(data))
-	fmt.Printf("OUT: %#v\n", output)
 
 	return cbor.Unmarshal(data, output)
 }

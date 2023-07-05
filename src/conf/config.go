@@ -66,6 +66,15 @@ type Provider struct {
 	Scopes       []string `json:"scopes" toml:"scopes"`
 }
 
+type OSS struct {
+	Bucket          string `json:"bucket" toml:"bucket"`
+	Endpoint        string `json:"endpoint" toml:"endpoint"`
+	AccessKeyId     string `json:"access_key_id" toml:"access_key_id"`
+	AccessKeySecret string `json:"access_key_secret" toml:"access_key_secret"`
+	Prefix          string `json:"prefix" toml:"prefix"`
+	UrlBase         string `json:"url_base" toml:"url_base"`
+}
+
 // ConfigTpl ...
 type ConfigTpl struct {
 	Rand      *rand.Rand
@@ -78,6 +87,7 @@ type ConfigTpl struct {
 	Userbase  Userbase            `json:"userbase" toml:"userbase"`
 	Keys      Keys                `json:"keys" toml:"keys"`
 	Providers map[string]Provider `json:"providers" toml:"providers"`
+	OSS       OSS                 `json:"oss" toml:"oss"`
 	COSEKeys  struct {
 		CWTPub      key.Key
 		Oauth2State key.Key

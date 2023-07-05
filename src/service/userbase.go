@@ -12,13 +12,11 @@ func init() {
 	util.DigProvide(NewUserbase)
 }
 
-// SQL ...
 type Userbase struct {
 	host string
 	cli  *http.Client
 }
 
-// NewUserbase ...
 func NewUserbase() *Userbase {
 	return &Userbase{
 		host: conf.Config.Userbase.Host,
@@ -26,7 +24,6 @@ func NewUserbase() *Userbase {
 	}
 }
 
-// Stats ...
 func (s *Userbase) Stats(ctx context.Context) (map[string]any, error) {
 	res := make(map[string]any)
 	err := s.Get(ctx, "/healthz", &res)

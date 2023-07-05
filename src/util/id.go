@@ -2,6 +2,7 @@ package util
 
 // util 模块不要引入其它内部模块
 import (
+	"encoding/base64"
 	"errors"
 	"strconv"
 
@@ -62,6 +63,10 @@ type UUID uuid.UUID
 
 func (id UUID) String() string {
 	return uuid.UUID(id).String()
+}
+
+func (id UUID) Base64() string {
+	return base64.RawURLEncoding.EncodeToString(id[:])
 }
 
 func (id UUID) MarshalCBOR() ([]byte, error) {

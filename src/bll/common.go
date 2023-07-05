@@ -20,10 +20,10 @@ type Blls struct {
 }
 
 // NewBlls ...
-func NewBlls(svc *service.Userbase) *Blls {
+func NewBlls(svc *service.Userbase, oss *service.OSS) *Blls {
 	return &Blls{
 		svc:     svc,
-		AuthN:   &AuthN{svc},
+		AuthN:   &AuthN{svc, oss},
 		Session: &Session{svc},
 	}
 }
@@ -34,6 +34,12 @@ func (b *Blls) Stats(ctx context.Context) (res map[string]any, err error) {
 
 type SuccessResponse[T any] struct {
 	Result T `json:"result" cbor:"result"`
+}
+
+type UpdateUserInput struct {
+	ID        util.ID `json:"id" cbor:"id"`
+	UpdatedAt int64   `json:"updated_at" cbor:"updated_at"`
+	Picture   string  `json:"picture,omitempty" cbor:"picture,omitempty"`
 }
 
 type UserInfo struct {
@@ -57,10 +63,19 @@ type AuthNInput struct {
 	User       UserInfo `json:"user" cbor:"user"`
 }
 
+type AuthNSessionOutput struct {
+	SID           util.ID   `json:"sid" cbor:"sid"`
+	UID           util.ID   `json:"uid" cbor:"uid"`
+	Sub           util.UUID `json:"sub" cbor:"sub"`
+	Session       string    `json:"session" cbor:"session"`
+	UserCreatedAt int64     `json:"user_created_at" cbor:"user_created_at"`
+}
+
 type AuthNOutput struct {
-	SID     util.ID `json:"sid" cbor:"sid"`
-	UID     util.ID `json:"uid" cbor:"uid"`
-	Session string  `json:"session" cbor:"session"`
+	Idp string  `json:"idp" cbor:"idp"`
+	Aud string  `json:"aud" cbor:"aud"`
+	Sub string  `json:"sub" cbor:"sub"`
+	UID util.ID `json:"uid" cbor:"uid"`
 }
 
 type SessionInput struct {

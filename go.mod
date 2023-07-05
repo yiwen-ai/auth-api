@@ -17,6 +17,7 @@ require (
 
 require (
 	github.com/GitbookIO/mimedb v0.0.0-20180329142916-39fdfdb4def4 // indirect
+	github.com/aliyun/aliyun-oss-go-sdk v2.2.7+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-http-utils/cookie v1.3.1 // indirect
 	github.com/go-http-utils/negotiator v1.0.0 // indirect
@@ -31,6 +32,7 @@ require (
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

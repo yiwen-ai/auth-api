@@ -30,3 +30,11 @@ oauth2_state = "./keys/hmac-state.key"
 client_id = "YOUR_CLIENT_ID"
 client_secret = "YOUR_CLIENT_SECRET"
 scopes = ["SCOPE1", "SCOPE2"]
+
+[oss]
+bucket = "yiwenai"
+endpoint = "oss-cn-hangzhou.aliyuncs.com"
+access_key_id = ""
+access_key_secret = ""
+prefix = "dev/pic/"
+url_base = "https://cdn.yiwen.pub/"
