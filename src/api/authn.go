@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 
 	"github.com/yiwen-ai/auth-api/src/bll"
 	"github.com/yiwen-ai/auth-api/src/conf"
+	"github.com/yiwen-ai/auth-api/src/logging"
 	"github.com/yiwen-ai/auth-api/src/util"
 )
 
@@ -27,6 +29,7 @@ type AuthN struct {
 	providers  map[string]*oauth2.Config
 	stateMACer key.MACer
 	cookie     conf.Cookie
+	authURL    *conf.AuthURL
 }
 
 func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
@@ -40,6 +43,7 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 		providers:  make(map[string]*oauth2.Config),
 		stateMACer: macer,
 		cookie:     cfg.Cookie,
+		authURL:    &cfg.AuthURL,
 	}
 
 	for k, v := range cfg.Providers {
@@ -65,14 +69,27 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 
 func (a *AuthN) Login(ctx *gear.Context) error {
 	idp := ctx.Param("idp")
-	provider, ok := a.providers[idp]
+	xid := ctx.GetHeader(gear.HeaderXRequestID)
+
+	nextURL, ok := a.authURL.CheckNextUrl(ctx.Query("next_url"))
 	if !ok {
-		return gear.ErrBadRequest.WithMsgf("unknown provider %q", idp)
+		next := a.authURL.GenNextUrl(&nextURL, 400, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("invalid next_url %q", ctx.Query("next_url")))
+		return ctx.Redirect(next)
 	}
 
-	state, err := a.createState(idp, provider.ClientID)
+	provider, ok := a.providers[idp]
+	if !ok {
+		next := a.authURL.GenNextUrl(&nextURL, 400, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("unknown provider %q", idp))
+		return ctx.Redirect(next)
+	}
+
+	state, err := a.createState(idp, provider.ClientID, nextURL.String())
 	if err != nil {
-		return gear.ErrInternalServerError.WithMsgf("failed to create state: %v", err)
+		next := a.authURL.GenNextUrl(&nextURL, 500, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("failed to create state: %v", err))
+		return ctx.Redirect(next)
 	}
 
 	url := provider.AuthCodeURL(state)
@@ -82,21 +99,30 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 // Get ..
 func (a *AuthN) Callback(ctx *gear.Context) error {
 	idp := ctx.Param("idp")
+	xid := ctx.GetHeader(gear.HeaderXRequestID)
+
 	provider, ok := a.providers[idp]
 	if !ok {
-		return gear.ErrBadRequest.WithMsgf("unknown provider %q", idp)
+		next := a.authURL.GenNextUrl(nil, 400, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("unknown provider %q", idp))
+		return ctx.Redirect(next)
 	}
 
 	code := ctx.Query("code")
 	state := ctx.Query("state")
-	if err := a.verifyState(idp, provider.ClientID, state); err != nil {
-		return gear.ErrBadRequest.WithMsgf("invalid state: %v", err)
+	nextURL, err := a.verifyState(idp, provider.ClientID, state)
+	if err != nil {
+		next := a.authURL.GenNextUrl(nil, 403, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("invalid state: %v", err))
+		return ctx.Redirect(next)
 	}
 
 	cctx := context.WithValue(ctx, oauth2.HTTPClient, util.ExternalHTTPClient)
 	token, err := provider.Exchange(cctx, code)
 	if err != nil {
-		return gear.ErrInternalServerError.WithMsgf("get token failed: %v", err)
+		next := a.authURL.GenNextUrl(nextURL, 403, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("get token failed: %v", err))
+		return ctx.Redirect(next)
 	}
 
 	client := provider.Client(cctx, token)
@@ -105,10 +131,14 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	case "github":
 		input, err = a.blls.AuthN.GithubUser(cctx, client)
 		if err != nil {
-			return gear.ErrInternalServerError.From(err)
+			next := a.authURL.GenNextUrl(nextURL, 500, xid)
+			logging.SetTo(ctx, "error", fmt.Sprintf("AuthN.GithubUser failed: %v", err))
+			return ctx.Redirect(next)
 		}
 	default:
-		return gear.ErrInternalServerError.WithMsgf("unknown provider %q", idp)
+		next := a.authURL.GenNextUrl(nextURL, 403, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("unknown provider %q", idp))
+		return ctx.Redirect(next)
 	}
 
 	input.Idp = idp
@@ -148,7 +178,9 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 
 	res, err := a.blls.AuthN.LoginOrNew(cctx, input)
 	if err != nil {
-		return gear.ErrInternalServerError.From(err)
+		next := a.authURL.GenNextUrl(nextURL, 500, xid)
+		logging.SetTo(ctx, "error", fmt.Sprintf("AuthN.LoginOrNew failed: %v", err))
+		return ctx.Redirect(next)
 	}
 
 	didCookie := &http.Cookie{
@@ -175,17 +207,18 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	}
 
 	http.SetCookie(ctx.Res, sessCookie)
-
-	return ctx.OkHTML("Login success!")
+	next := a.authURL.GenNextUrl(nextURL, 200, "")
+	return ctx.Redirect(next)
 }
 
-func (a *AuthN) createState(idp, client_id string) (string, error) {
+func (a *AuthN) createState(idp, client_id, next_url string) (string, error) {
 	obj := &cose.Mac0Message[key.IntMap]{
 		Unprotected: cose.Headers{},
 		Payload: key.IntMap{
 			0: idp,
 			1: time.Now().Add(5 * time.Minute).Unix(),
 			2: conf.Config.Rand.Uint32(),
+			3: next_url,
 		},
 	}
 	err := obj.Compute(a.stateMACer, []byte(client_id))
@@ -200,25 +233,26 @@ func (a *AuthN) createState(idp, client_id string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-func (a *AuthN) verifyState(idp, client_id, state string) error {
+func (a *AuthN) verifyState(idp, client_id, state string) (*url.URL, error) {
 	data, err := base64.RawURLEncoding.DecodeString(state)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	obj := &cose.Mac0Message[key.IntMap]{}
 	if err = cbor.Unmarshal(data, obj); err != nil {
-		return err
+		return nil, err
 	}
 	if err = obj.Verify(a.stateMACer, []byte(client_id)); err != nil {
-		return err
+		return nil, err
 	}
 	if v, _ := obj.Payload.GetString(0); v != idp {
-		return fmt.Errorf("invalid state for provider %q", idp)
+		return nil, fmt.Errorf("invalid state for provider %q", idp)
 	}
 	if v, _ := obj.Payload.GetInt64(1); v < time.Now().Unix() {
-		return fmt.Errorf("expired state")
+		return nil, fmt.Errorf("expired state")
 	}
 
-	return nil
+	next_url, _ := obj.Payload.GetString(3)
+	return url.Parse(next_url)
 }

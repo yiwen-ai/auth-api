@@ -26,15 +26,13 @@ func NewApp() *gear.App {
 	app.Set(gear.SetGraceTimeout, time.Duration(conf.Config.Server.GracefulShutdown)*time.Second)
 	app.Set(gear.SetSender, &sendObject{})
 	app.Set(gear.SetEnv, conf.Config.Env)
-	app.Set(gear.SetParseError, func(err error) gear.HTTPError {
-		msg := err.Error()
-
-		if strings.Contains(msg, "Error 1062: Duplicate") {
-			return gear.ErrConflict.WithMsg(msg)
-		}
-
-		return gear.ParseError(err)
-	})
+	// app.Set(gear.SetParseError, func(err error) gear.HTTPError {
+	// 	msg := err.Error()
+	// 	if strings.Contains(msg, "Error 1062: Duplicate") {
+	// 		return gear.ErrConflict.WithMsg(msg)
+	// 	}
+	// 	return gear.ParseError(err)
+	// })
 
 	app.UseHandler(logging.AccessLogger)
 	err := util.DigInvoke(func(routers []*gear.Router) error {

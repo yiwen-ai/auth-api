@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/ldclabs/cose/key"
 	"github.com/teambition/gear"
+	"github.com/yiwen-ai/auth-api/src/util"
 )
 
 // Config ...
@@ -51,6 +54,48 @@ type Cookie struct {
 	ExpiresIn  uint   `json:"expires_in" toml:"expires_in"`
 }
 
+type AuthURL struct {
+	DefaultHost string   `json:"default_host" toml:"default_host"`
+	DefaultPath string   `json:"default_path" toml:"default_path"`
+	AllowHosts  []string `json:"allow_hosts" toml:"allow_hosts"`
+	DefaultURL  url.URL
+}
+
+func (c *AuthURL) CheckNextUrl(nextUrl string) (url.URL, bool) {
+	if u, err := url.Parse(nextUrl); err == nil {
+		if u.Host == "" {
+			u.Host = c.DefaultHost
+			u.Scheme = "https"
+		} else if !util.StringSliceHas(c.AllowHosts, u.Host) {
+			return c.DefaultURL, false
+		}
+
+		return *u, true
+	}
+
+	return c.DefaultURL, false
+}
+
+func (c *AuthURL) GenNextUrl(u *url.URL, status int, xRequestId string) string {
+	if u == nil {
+		nextUrl := c.DefaultURL
+		u = &nextUrl
+	}
+
+	if u.Host == "" {
+		u.Host = c.DefaultHost
+		u.Scheme = "https"
+	}
+
+	q := u.Query()
+	q.Set("status", strconv.Itoa(status))
+	if xRequestId != "" {
+		q.Set("x-request-id", xRequestId)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 type Userbase struct {
 	Host string `json:"host" toml:"host"`
 }
@@ -84,6 +129,7 @@ type ConfigTpl struct {
 	Logger    Logger              `json:"log" toml:"log"`
 	Server    Server              `json:"server" toml:"server"`
 	Cookie    Cookie              `json:"cookie" toml:"cookie"`
+	AuthURL   AuthURL             `json:"auth_url" toml:"auth_url"`
 	Userbase  Userbase            `json:"userbase" toml:"userbase"`
 	Keys      Keys                `json:"keys" toml:"keys"`
 	Providers map[string]Provider `json:"providers" toml:"providers"`
@@ -101,6 +147,12 @@ func (c *ConfigTpl) Validate() error {
 	}
 	if c.COSEKeys.Oauth2State, err = readKey(c.Keys.Oauth2State); err != nil {
 		return err
+	}
+
+	c.AuthURL.DefaultURL = url.URL{
+		Scheme: "https",
+		Host:   c.AuthURL.DefaultHost,
+		Path:   c.AuthURL.DefaultPath,
 	}
 	return nil
 }

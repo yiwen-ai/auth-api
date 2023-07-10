@@ -18,6 +18,11 @@ domain = "yiwen.ltd"
 secure = false
 expires_in = 2592000 # 60*60*24*30 seconds
 
+[auth_url]
+default_host = "www.yiwen.ltd"
+default_path = "/login/state"
+allow_hosts = ["www.yiwen.ltd"]
+
 [userbase]
 host = "http://127.0.0.1:8080"
 
