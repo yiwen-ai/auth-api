@@ -27,7 +27,7 @@ build:
 	-X ${APP_PATH}/src/conf.AppVersion=${APP_VERSION} \
 	-X ${APP_PATH}/src/conf.BuildTime=${BUILD_TIME} \
 	-X ${APP_PATH}/src/conf.GitSHA1=${BUILD_COMMIT}" \
-	-o ./dist/auth-api main.go
+	-o ./dist/goapp main.go
 
 xx-build:
 	@mkdir -p ./dist
@@ -35,5 +35,5 @@ xx-build:
 	-X ${APP_PATH}/src/conf.AppVersion=${APP_VERSION} \
 	-X ${APP_PATH}/src/conf.BuildTime=${BUILD_TIME} \
 	-X ${APP_PATH}/src/conf.GitSHA1=${BUILD_COMMIT}" \
-	-o ./dist/auth-api main.go
-	@xx-verify --static ./dist/auth-api
+	-o ./dist/goapp main.go
+	@xx-verify --static ./dist/goapp

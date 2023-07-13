@@ -38,6 +38,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=builder /src/config ./config
-COPY --from=builder /src/keys ./keys
-COPY --from=builder /src/dist/auth-api ./
-ENTRYPOINT ["./auth-api"]
+COPY --from=builder /src/dist/goapp ./
+ENV CONFIG_FILE_PATH=./config/config.toml
+
+ENTRYPOINT ["./goapp"]
