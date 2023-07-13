@@ -1,22 +1,40 @@
-# syntax=docker/dockerfile:1
+# Cross-compiling using Docker multi-platform builds/images and `xx`.
+#
+# https://docs.docker.com/build/building/multi-platform/
+# https://github.com/tonistiigi/xx
+FROM --platform=${BUILDPLATFORM:-linux/amd64} tonistiigi/xx AS xx
 
-FROM --platform=$BUILDPLATFORM golang:latest AS builder
-
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:latest AS builder
 WORKDIR /src
-COPY config ./config
-COPY keys ./keys
-COPY src ./src
-COPY go.mod go.sum main.go Makefile ./
-RUN make build
 
-FROM --platform=$BUILDPLATFORM ubuntu:23.04
-RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
+COPY --from=xx / /
+
+# `ARG`/`ENV` pair is a workaround for `docker build` backward-compatibility.
+#
+# https://github.com/docker/buildx/issues/510
+ARG BUILDPLATFORM
+ENV BUILDPLATFORM=${BUILDPLATFORM:-linux/amd64}
+RUN case "$BUILDPLATFORM" in \
+        */amd64 ) PLATFORM=x86_64 ;; \
+        */arm64 | */arm64/* ) PLATFORM=aarch64 ;; \
+        * ) echo "Unexpected BUILDPLATFORM '$BUILDPLATFORM'" >&2; exit 1 ;; \
+    esac;
+
+# `ARG`/`ENV` pair is a workaround for `docker build` backward-compatibility.
+#
+# https://github.com/docker/buildx/issues/510
+ARG TARGETPLATFORM
+ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
+
+COPY . .
+RUN make xx-build
+
+FROM debian:12-slim AS runtime
+
 RUN apt-get update \
-    && apt-get install -y bash curl ca-certificates tzdata locales \
+    && apt-get install -y ca-certificates tzdata curl \
     && update-ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
-ENV LANG en_US.utf8
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /src/config ./config
