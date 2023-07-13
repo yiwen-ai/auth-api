@@ -36,4 +36,4 @@ xx-build:
 	-X ${APP_PATH}/src/conf.BuildTime=${BUILD_TIME} \
 	-X ${APP_PATH}/src/conf.GitSHA1=${BUILD_COMMIT}" \
 	-o ./dist/auth-api main.go
-  @xx-verify --static ./dist/auth-api
+	@xx-verify --static ./dist/auth-api
