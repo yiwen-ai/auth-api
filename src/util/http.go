@@ -49,15 +49,15 @@ var ExternalHTTPClient = &http.Client{
 var internalTr = &http.Transport{
 	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	DialContext: (&net.Dialer{
-		Timeout:   2 * time.Second,
+		Timeout:   5 * time.Second,
 		KeepAlive: 15 * time.Second,
 	}).DialContext,
 	MaxIdleConns:          100,
 	MaxIdleConnsPerHost:   100,
 	IdleConnTimeout:       25 * time.Second,
-	TLSHandshakeTimeout:   1 * time.Second,
-	ExpectContinueTimeout: 1 * time.Second,
-	ResponseHeaderTimeout: 3 * time.Second,
+	TLSHandshakeTimeout:   3 * time.Second,
+	ExpectContinueTimeout: 4 * time.Second,
+	ResponseHeaderTimeout: 5 * time.Second,
 }
 
 var HTTPClient = &http.Client{

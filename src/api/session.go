@@ -60,6 +60,7 @@ func (a *Session) AccessToken(ctx *gear.Context) error {
 	if err != nil {
 		return gear.ErrUnauthorized.From(err)
 	}
+	output.UID = nil // should not return uid
 
 	return ctx.OkSend(output)
 }
