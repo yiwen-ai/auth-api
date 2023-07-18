@@ -4,7 +4,7 @@
 # https://github.com/tonistiigi/xx
 FROM --platform=${BUILDPLATFORM:-linux/amd64} tonistiigi/xx AS xx
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:latest AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:bookworm AS builder
 WORKDIR /src
 
 COPY --from=xx / /
@@ -29,7 +29,7 @@ ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
 COPY . .
 RUN make xx-build
 
-FROM debian:12-slim AS runtime
+FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
     && apt-get install -y ca-certificates tzdata curl \
