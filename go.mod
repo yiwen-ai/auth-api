@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/aliyun/aliyun-oss-go-sdk v2.2.7+incompatible
+	github.com/aliyun/aliyun-oss-go-sdk v2.2.8+incompatible
 	github.com/fxamacker/cbor/v2 v2.5.0-beta5
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.16.7
@@ -25,7 +25,6 @@ require (
 	github.com/go-http-utils/negotiator v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/teambition/trie-mux v1.5.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
