@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -35,7 +36,14 @@ func init() {
 		panic(err)
 	}
 	p.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	p.GlobalCtx = gear.ContextWithSignal(context.Background())
+	p.GlobalSignal = gear.ContextWithSignal(context.Background())
+
+	var cancel context.CancelFunc
+	p.GlobalShutdown, cancel = context.WithCancel(context.Background())
+	go func() {
+		<-p.GlobalSignal.Done()
+		time.AfterFunc(time.Duration(p.Server.GracefulShutdown)*time.Second, cancel)
+	}()
 }
 
 type Logger struct {
@@ -66,7 +74,7 @@ func (c *AuthURL) CheckNextUrl(nextUrl string) (url.URL, bool) {
 		if u.Host == "" {
 			u.Host = c.DefaultHost
 			u.Scheme = "https"
-		} else if !util.StringSliceHas(c.AllowHosts, u.Host) {
+		} else if !util.SliceHas(c.AllowHosts, u.Host) {
 			return c.DefaultURL, false
 		}
 
@@ -108,6 +116,7 @@ type Keys struct {
 type Provider struct {
 	ClientID     string   `json:"client_id" toml:"client_id"`
 	ClientSecret string   `json:"client_secret" toml:"client_secret"`
+	RedirectURL  string   `json:"redirect_uri" toml:"redirect_uri"`
 	Scopes       []string `json:"scopes" toml:"scopes"`
 }
 
@@ -122,22 +131,25 @@ type OSS struct {
 
 // ConfigTpl ...
 type ConfigTpl struct {
-	Rand      *rand.Rand
-	GlobalCtx context.Context
-	Env       string              `json:"env" toml:"env"`
-	Home      string              `json:"home" toml:"home"`
-	Logger    Logger              `json:"log" toml:"log"`
-	Server    Server              `json:"server" toml:"server"`
-	Cookie    Cookie              `json:"cookie" toml:"cookie"`
-	AuthURL   AuthURL             `json:"auth_url" toml:"auth_url"`
-	Userbase  Userbase            `json:"userbase" toml:"userbase"`
-	Keys      Keys                `json:"keys" toml:"keys"`
-	Providers map[string]Provider `json:"providers" toml:"providers"`
-	OSS       OSS                 `json:"oss" toml:"oss"`
-	COSEKeys  struct {
+	Rand           *rand.Rand
+	GlobalSignal   context.Context
+	GlobalShutdown context.Context
+	Env            string              `json:"env" toml:"env"`
+	Home           string              `json:"home" toml:"home"`
+	Logger         Logger              `json:"log" toml:"log"`
+	Server         Server              `json:"server" toml:"server"`
+	Cookie         Cookie              `json:"cookie" toml:"cookie"`
+	AuthURL        AuthURL             `json:"auth_url" toml:"auth_url"`
+	Userbase       Userbase            `json:"userbase" toml:"userbase"`
+	Keys           Keys                `json:"keys" toml:"keys"`
+	Providers      map[string]Provider `json:"providers" toml:"providers"`
+	OSS            OSS                 `json:"oss" toml:"oss"`
+	COSEKeys       struct {
 		CWTPub      key.Key
 		Oauth2State key.Key
 	}
+
+	globalJobs int64 // global async jobs counter for graceful shutdown
 }
 
 func (c *ConfigTpl) Validate() error {
@@ -155,6 +167,27 @@ func (c *ConfigTpl) Validate() error {
 		Path:   c.AuthURL.DefaultPath,
 	}
 	return nil
+}
+
+func (c *ConfigTpl) ObtainJob() {
+	atomic.AddInt64(&c.globalJobs, 1)
+}
+
+func (c *ConfigTpl) ReleaseJob() {
+	atomic.AddInt64(&c.globalJobs, -1)
+}
+
+func (c *ConfigTpl) JobsIdle() bool {
+	return atomic.LoadInt64(&c.globalJobs) <= 0
+}
+
+func WithGlobalCtx(ctx context.Context) context.Context {
+	gctx := Config.GlobalShutdown
+	if h := gear.CtxValue[util.ContextHTTPHeader](ctx); h != nil {
+		gctx = gear.CtxWith[util.ContextHTTPHeader](gctx, h)
+	}
+
+	return gctx
 }
 
 func readKey(filePath string) (k key.Key, err error) {

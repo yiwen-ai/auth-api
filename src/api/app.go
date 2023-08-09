@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/teambition/compressible-go"
 	"github.com/teambition/gear"
 
 	"github.com/yiwen-ai/auth-api/src/conf"
@@ -22,7 +21,7 @@ func NewApp() *gear.App {
 	app.Set(gear.SetBodyParser, &bodyParser{gear.DefaultBodyParser(2 << 18)}) // 512k
 	// ignore TLS handshake error
 	app.Set(gear.SetLogger, log.New(gear.DefaultFilterWriter(), "", 0))
-	app.Set(gear.SetCompress, compressible.WithThreshold(256))
+	app.Set(gear.SetCompress, gear.ThresholdCompress(128))
 	app.Set(gear.SetGraceTimeout, time.Duration(conf.Config.Server.GracefulShutdown)*time.Second)
 	app.Set(gear.SetSender, &sendObject{})
 	app.Set(gear.SetEnv, conf.Config.Env)

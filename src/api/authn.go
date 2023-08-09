@@ -51,6 +51,13 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 		switch k {
 		case "github":
 			endpoint = endpoints.GitHub
+		case "wechat":
+			endpoint = oauth2.Endpoint{
+				AuthURL:  "https://open.weixin.qq.com/connect/qrconnect",
+				TokenURL: "https://api.weixin.qq.com/sns/oauth2/access_token",
+			}
+		case "google":
+			endpoint = endpoints.Google
 		default:
 			panic(fmt.Sprintf("unknown provider %q\n", k))
 		}
@@ -59,7 +66,7 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 			ClientID:     v.ClientID,
 			ClientSecret: v.ClientSecret,
 			Scopes:       v.Scopes,
-			RedirectURL:  "",
+			RedirectURL:  v.RedirectURL,
 			Endpoint:     endpoint,
 		}
 	}
@@ -92,7 +99,7 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 		return ctx.Redirect(next)
 	}
 
-	url := provider.AuthCodeURL(state)
+	url := a.getAuthCodeURL(idp, state)
 	return ctx.Redirect(url)
 }
 
@@ -117,27 +124,10 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		return ctx.Redirect(next)
 	}
 
-	cctx := context.WithValue(ctx, oauth2.HTTPClient, util.ExternalHTTPClient)
-	token, err := provider.Exchange(cctx, code)
+	input, err := a.exchange(ctx, idp, code)
 	if err != nil {
 		next := a.authURL.GenNextUrl(nextURL, 403, xid)
-		logging.SetTo(ctx, "error", fmt.Sprintf("get token failed: %v", err))
-		return ctx.Redirect(next)
-	}
-
-	client := provider.Client(cctx, token)
-	var input *bll.AuthNInput
-	switch idp {
-	case "github":
-		input, err = a.blls.AuthN.GithubUser(cctx, client)
-		if err != nil {
-			next := a.authURL.GenNextUrl(nextURL, 500, xid)
-			logging.SetTo(ctx, "error", fmt.Sprintf("AuthN.GithubUser failed: %v", err))
-			return ctx.Redirect(next)
-		}
-	default:
-		next := a.authURL.GenNextUrl(nextURL, 403, xid)
-		logging.SetTo(ctx, "error", fmt.Sprintf("unknown provider %q", idp))
+		logging.SetTo(ctx, "error", err.Error())
 		return ctx.Redirect(next)
 	}
 
@@ -151,7 +141,6 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		locale = locale[:i]
 	}
 	input.User.Locale = locale
-	input.Payload, _ = cbor.Marshal(token)
 	input.DeviceID = ctx.GetHeader("X-Device-Id")
 	didCookieName := a.cookie.NamePrefix + "_DID"
 	if input.DeviceID == "" {
@@ -176,7 +165,7 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	}
 	input.DeviceDesc = strings.Join(desc, ", ")
 
-	res, err := a.blls.AuthN.LoginOrNew(cctx, input)
+	res, err := a.blls.AuthN.LoginOrNew(ctx, input)
 	if err != nil {
 		next := a.authURL.GenNextUrl(nextURL, 500, xid)
 		logging.SetTo(ctx, "error", fmt.Sprintf("AuthN.LoginOrNew failed: %v", err))
@@ -209,6 +198,125 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	http.SetCookie(ctx.Res, sessCookie)
 	next := a.authURL.GenNextUrl(nextURL, 200, "")
 	return ctx.Redirect(next)
+}
+
+func (a *AuthN) getAuthCodeURL(idp, state string) string {
+	provider := a.providers[idp]
+	uri := provider.AuthCodeURL(state)
+	switch idp {
+	case "wechat":
+		// https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
+		uri = strings.Replace(uri, "client_id", "appid", 1)
+		uri += "#wechat_redirect"
+	}
+	fmt.Println(idp, uri)
+	return uri
+}
+
+func (a *AuthN) exchange(ctx context.Context, idp, code string) (*bll.AuthNInput, error) {
+	cli := util.ExternalHTTPClient
+	cctx := context.WithValue(ctx, oauth2.HTTPClient, cli)
+	provider := a.providers[idp]
+	rt := &bll.AuthNInput{}
+
+	switch idp {
+	case "wechat":
+		v := url.Values{
+			"appid":      {provider.ClientID},
+			"secret":     {provider.ClientSecret},
+			"code":       {code},
+			"grant_type": {"authorization_code"},
+		}
+		// https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
+		uri := provider.Endpoint.TokenURL + "?" + v.Encode()
+
+		type wechatToken struct {
+			AccessToken  string `json:"access_token" cbor:"access_token"`
+			RefreshToken string `json:"refresh_token,omitempty" cbor:"refresh_token,omitempty"`
+			ExpiresIn    uint   `json:"expires_in,omitempty" cbor:"expires_in,omitempty"`
+			OpenID       string `json:"openid,omitempty" cbor:"openid,omitempty"`
+			Scope        string `json:"scope,omitempty" cbor:"scope,omitempty"`
+			UnionID      string `json:"unionid,omitempty" cbor:"unionid,omitempty"`
+		}
+
+		token := &wechatToken{}
+		if err := util.RequestJSON(cctx, cli, "GET", uri, nil, token); err != nil {
+			return nil, err
+		}
+		rt.Payload, _ = cbor.Marshal(token)
+
+		type wechatUser struct {
+			Sub     string `json:"unionid" cbor:"unionid"`
+			Name    string `json:"nickname" cbor:"nickname"`
+			Picture string `json:"headimgurl" cbor:"headimgurl"`
+		}
+
+		user := &wechatUser{}
+		v = url.Values{
+			"access_token": {token.AccessToken},
+			"openid":       {token.OpenID},
+		}
+		uri = "https://api.weixin.qq.com/sns/userinfo?" + v.Encode()
+		if err := util.RequestJSON(cctx, cli, "GET", uri, nil, user); err != nil {
+			return nil, err
+		}
+		rt.Sub = user.Sub
+		rt.User.Name = user.Name
+		rt.User.Picture = user.Picture
+
+	case "github":
+		token, err := provider.Exchange(cctx, code)
+		if err != nil {
+			return nil, err
+		}
+		rt.Payload, _ = cbor.Marshal(token)
+
+		type githubUser struct {
+			Sub     string `json:"login" cbor:"login"`
+			Name    string `json:"name" cbor:"name"`
+			Picture string `json:"avatar_url" cbor:"avatar_url"`
+		}
+
+		user := &githubUser{}
+		api := "https://api.github.com/user"
+		cli = provider.Client(cctx, token)
+		if err := util.RequestJSON(ctx, cli, "GET", api, nil, user); err != nil {
+			return nil, err
+		}
+
+		rt.Sub = user.Sub
+		rt.User.Name = user.Name
+		rt.User.Picture = user.Picture
+
+	case "google":
+		token, err := provider.Exchange(cctx, code)
+		if err != nil {
+			return nil, err
+		}
+		rt.Payload, _ = cbor.Marshal(token)
+
+		type googleUser struct {
+			Sub     string `json:"id" cbor:"id"`
+			Name    string `json:"name" cbor:"name"`
+			Picture string `json:"picture" cbor:"picture"`
+		}
+
+		user := &googleUser{}
+		api := "https://www.googleapis.com/oauth2/v1/userinfo"
+		cli = provider.Client(cctx, token)
+		if err := util.RequestJSON(ctx, cli, "GET", api, nil, user); err != nil {
+			return nil, err
+		}
+
+		rt.Sub = user.Sub
+		rt.User.Name = user.Name
+		rt.User.Picture = user.Picture
+
+	default:
+		return nil, fmt.Errorf("unknown provider %q", idp)
+	}
+
+	return rt, nil
 }
 
 func (a *AuthN) createState(idp, client_id, next_url string) (string, error) {

@@ -34,6 +34,7 @@ oauth2_state = "./keys/hmac-state.key"
 [providers.github]
 client_id = "YOUR_CLIENT_ID"
 client_secret = "YOUR_CLIENT_SECRET"
+redirect_uri = ""
 scopes = ["SCOPE1", "SCOPE2"]
 
 [oss]

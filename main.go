@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/yiwen-ai/auth-api/src/api"
 	"github.com/yiwen-ai/auth-api/src/conf"
@@ -23,9 +24,23 @@ func main() {
 	}
 
 	app := api.NewApp()
-	ctx := conf.Config.GlobalCtx
 	host := "http://" + conf.Config.Server.Addr
-	logging.Infof("auth-api start on %s", host)
-	logging.Errf("auth-api closed %v", app.ListenWithContext(
-		ctx, conf.Config.Server.Addr))
+	logging.Infof("%s@%s start on %s", conf.AppName, conf.AppVersion, host)
+	err := app.ListenWithContext(conf.Config.GlobalSignal, conf.Config.Server.Addr)
+	logging.Warningf("%s@%s http server closed: %v", conf.AppName, conf.AppVersion, err)
+
+	ctx := conf.Config.GlobalShutdown
+	for {
+		if conf.Config.JobsIdle() {
+			logging.Infof("%s@%s shutdown: OK", conf.AppName, conf.AppVersion)
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			logging.Errf("%s@%s shutdown: %v", conf.AppName, conf.AppVersion, ctx.Err())
+			return
+		case <-time.After(time.Second):
+		}
+	}
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/teambition/gear"
@@ -38,6 +39,19 @@ func todo(ctx *gear.Context) error {
 func newRouters(apis *APIs) []*gear.Router {
 
 	router := gear.NewRouter()
+	router.Use(func(ctx *gear.Context) error {
+		ctxHeader := make(http.Header)
+		// inject headers into context for base service
+		util.CopyHeader(ctxHeader, ctx.Req.Header,
+			"x-real-ip",
+			"x-request-id",
+		)
+
+		cheader := util.ContextHTTPHeader(ctxHeader)
+		ctx.WithContext(gear.CtxWith[util.ContextHTTPHeader](ctx.Context(), &cheader))
+		return nil
+	})
+
 	// health check
 	router.Get("/healthz", apis.Healthz.Get)
 	router.Get("/access_token", apis.Session.AccessToken)

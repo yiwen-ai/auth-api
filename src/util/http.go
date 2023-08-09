@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
@@ -21,8 +22,6 @@ import (
 func init() {
 	userAgent = fmt.Sprintf("Go/%v auth-api", runtime.Version())
 }
-
-type ContextHTTPHeader http.Header
 
 var userAgent string
 
@@ -55,9 +54,9 @@ var internalTr = &http.Transport{
 	MaxIdleConns:          100,
 	MaxIdleConnsPerHost:   100,
 	IdleConnTimeout:       25 * time.Second,
-	TLSHandshakeTimeout:   3 * time.Second,
-	ExpectContinueTimeout: 4 * time.Second,
-	ResponseHeaderTimeout: 5 * time.Second,
+	TLSHandshakeTimeout:   8 * time.Second,
+	ExpectContinueTimeout: 9 * time.Second,
+	ResponseHeaderTimeout: 10 * time.Second,
 }
 
 var HTTPClient = &http.Client{
@@ -65,16 +64,23 @@ var HTTPClient = &http.Client{
 	Timeout:   time.Second * 5,
 }
 
+var ErrNotFound = gear.ErrNotFound
+
+type ContextHTTPHeader http.Header
+
 func RequestJSON(ctx context.Context, cli *http.Client, method, api string, input, output any) error {
 	if ctx.Err() != nil {
 		return nil
 	}
 
+	var err error
 	var body io.Reader
 	if input != nil {
-		data, err := json.Marshal(input)
-		if err != nil {
-			return err
+		data, ok := input.([]byte)
+		if !ok {
+			if data, err = json.Marshal(input); err != nil {
+				return err
+			}
 		}
 		body = bytes.NewReader(data)
 	}
@@ -94,6 +100,7 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 		CopyHeader(req.Header, http.Header(*header))
 	}
 
+	rid := req.Header.Get(gear.HeaderXRequestID)
 	resp, err := cli.Do(req)
 	if err != nil {
 		if err.(*url.Error).Unwrap() == context.Canceled {
@@ -103,13 +110,17 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 		return err
 	}
 
-	data, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 200 || err != nil {
-		return fmt.Errorf("RequestJSON %q failed, code: %d, error: %v, body: %s",
-			api, resp.StatusCode, err, string(data))
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return ErrNotFound
 	}
 
+	data, err := io.ReadAll(resp.Body)
+	if resp.StatusCode > 206 || err != nil {
+		return fmt.Errorf("RequestJSON %q failed, rid: %s, code: %d, error: %v, body: %s",
+			api, rid, resp.StatusCode, err, string(data))
+	}
+	// fmt.Println(string(data))
 	return json.Unmarshal(data, output)
 }
 
@@ -118,11 +129,14 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		return nil
 	}
 
+	var err error
 	var body io.Reader
 	if input != nil {
-		data, err := cbor.Marshal(input)
-		if err != nil {
-			return err
+		data, ok := input.([]byte)
+		if !ok {
+			if data, err = cbor.Marshal(input); err != nil {
+				return err
+			}
 		}
 		body = bytes.NewReader(data)
 	}
@@ -142,6 +156,7 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		CopyHeader(req.Header, http.Header(*header))
 	}
 
+	rid := req.Header.Get(gear.HeaderXRequestID)
 	resp, err := cli.Do(req)
 	if err != nil {
 		if err.(*url.Error).Unwrap() == context.Canceled {
@@ -151,18 +166,30 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		return err
 	}
 
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return ErrNotFound
+	}
+
 	data, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 200 || err != nil {
-		return fmt.Errorf("RequestCBOR %q failed, code: %d, error: %v, body: %s",
-			api, resp.StatusCode, err, string(data))
+	if resp.StatusCode > 206 || err != nil {
+		str, e := cbor.Diagnose(data)
+		if e != nil {
+			str = string(data)
+		}
+		return fmt.Errorf("RequestCBOR %q failed, rid: %s, code: %d, error: %v, body: %s",
+			api, rid, resp.StatusCode, err, str)
 	}
 
 	return cbor.Unmarshal(data, output)
 }
 
-func CopyHeader(dst http.Header, src http.Header) {
+func CopyHeader(dst http.Header, src http.Header, names ...string) {
 	for k, vv := range src {
+		if len(names) > 0 && !SliceHas(names, strings.ToLower(k)) {
+			continue
+		}
+
 		switch len(vv) {
 		case 1:
 			dst.Set(k, vv[0])
