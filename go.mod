@@ -5,10 +5,10 @@ go 1.20
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.8+incompatible
-	github.com/fxamacker/cbor/v2 v2.5.0-beta5
+	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.16.7
-	github.com/ldclabs/cose v1.1.1
+	github.com/ldclabs/cose v1.1.2
 	github.com/mssola/useragent v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stretchr/testify v1.8.4

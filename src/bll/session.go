@@ -34,3 +34,11 @@ func (b *Session) UserInfo(ctx context.Context, uid util.ID) (*UserInfo, error) 
 	}
 	return &output.Result, nil
 }
+
+func (b *Session) Delete(ctx context.Context, sid util.ID) (*SuccessResponse[bool], error) {
+	output := SuccessResponse[bool]{}
+	if err := b.svc.Delete(ctx, "/v1/session?sid="+sid.String(), &output); err != nil {
+		return nil, err
+	}
+	return &output, nil
+}

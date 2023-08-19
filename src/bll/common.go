@@ -85,6 +85,7 @@ type SessionInput struct {
 }
 
 type SessionOutput struct {
+	SID         *util.ID   `json:"sid,omitempty" cbor:"sid,omitempty"`
 	Sub         *util.UUID `json:"sub,omitempty" cbor:"sub,omitempty"`
 	UID         *util.ID   `json:"uid,omitempty" cbor:"uid,omitempty"`
 	AccessToken string     `json:"access_token,omitempty" cbor:"access_token,omitempty"`
