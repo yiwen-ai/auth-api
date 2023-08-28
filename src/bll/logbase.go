@@ -79,6 +79,11 @@ type CreateLogInput struct {
 	Tokens  uint32     `json:"tokens" cbor:"tokens"`
 }
 
+type LogPayload struct {
+	Idp *string `json:"idp,omitempty" cbor:"idp,omitempty"`
+	Sub *string `json:"sub,omitempty" cbor:"sub,omitempty"`
+}
+
 func (b *Logbase) Log(ctx *gear.Context, action string, status int8, uid, gid util.ID, payload any) (*LogOutput, error) {
 	input := CreateLogInput{
 		UID:    uid,

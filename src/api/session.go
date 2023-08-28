@@ -95,6 +95,8 @@ func (a *Session) Logout(ctx *gear.Context) error {
 		return gear.ErrInternalServerError.From(err)
 	}
 
+	go a.blls.Logbase.Log(ctx, bll.LogActionUserLogout, 1, *sess.UID, *sess.UID, nil)
+
 	didCookie := &http.Cookie{
 		Name:     a.cookie.NamePrefix + "_DID",
 		Value:    "",

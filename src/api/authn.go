@@ -183,6 +183,15 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 			referrer = c.Value
 		}
 		go a.giveAward(conf.WithGlobalCtx(ctx), res.UID, referrer)
+		go a.blls.Logbase.Log(ctx, bll.LogActionSysCreateUser, 1, res.UID, res.UID, &bll.LogPayload{
+			Idp: util.Ptr(idp),
+			Sub: util.Ptr(input.Sub),
+		})
+	} else {
+		go a.blls.Logbase.Log(ctx, bll.LogActionUserLogin, 1, res.UID, res.UID, &bll.LogPayload{
+			Idp: util.Ptr(idp),
+			Sub: util.Ptr(input.Sub),
+		})
 	}
 
 	didCookie := &http.Cookie{
