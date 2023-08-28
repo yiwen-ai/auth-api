@@ -16,7 +16,7 @@ type Walletbase struct {
 type AwardInput struct {
 	Payee       util.ID    `json:"payee" cbor:"payee"`
 	Amount      int64      `json:"amount" cbor:"amount"`
-	Credits     *uint64    `json:"credits" cbor:"credits"`
+	Credits     uint64     `json:"credits" cbor:"credits"`
 	Description string     `json:"description,omitempty" cbor:"description,omitempty"`
 	Payload     util.Bytes `json:"payload,omitempty" cbor:"payload,omitempty"`
 }
