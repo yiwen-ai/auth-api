@@ -120,7 +120,7 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 		return fmt.Errorf("RequestJSON %q failed, rid: %s, code: %d, error: %v, body: %s",
 			api, rid, resp.StatusCode, err, string(data))
 	}
-	// fmt.Println(string(data))
+
 	return json.Unmarshal(data, output)
 }
 

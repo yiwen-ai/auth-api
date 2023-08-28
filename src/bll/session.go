@@ -8,7 +8,7 @@ import (
 )
 
 type Session struct {
-	svc *service.Userbase
+	svc service.APIHost
 }
 
 func (b *Session) Verify(ctx context.Context, input *SessionInput) (*SessionOutput, error) {
@@ -27,9 +27,16 @@ func (b *Session) AccessToken(ctx context.Context, input *SessionInput) (*Sessio
 	return &output.Result, nil
 }
 
-func (b *Session) UserInfo(ctx context.Context, uid util.ID) (*UserInfo, error) {
+func (b *Session) UserInfo(ctx context.Context, id *util.ID, cn string) (*UserInfo, error) {
 	output := SuccessResponse[UserInfo]{}
-	if err := b.svc.Get(ctx, "/v1/user?fields=cn,name,locale,picture,status&id="+uid.String(), &output); err != nil {
+	api := "/v1/user?fields=cn,name,locale,picture,status"
+	if id != nil {
+		api += "&id=" + id.String()
+	} else {
+		api += "&cn=" + cn
+	}
+
+	if err := b.svc.Get(ctx, api, &output); err != nil {
 		return nil, err
 	}
 	return &output.Result, nil

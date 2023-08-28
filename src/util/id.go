@@ -11,8 +11,29 @@ import (
 	"github.com/rs/xid"
 )
 
+var ZeroID ID
 var JARVIS ID = mustParseID("0000000000000jarvis0") // system user
 var ANON ID = mustParseID("000000000000000anon0")   // anonymous user
+
+func NewID() ID {
+	return ID(xid.New())
+}
+
+func ParseID(s string) (ID, error) {
+	id, err := xid.FromString(s)
+	if err != nil {
+		return ZeroID, err
+	}
+	return ID(id), nil
+}
+
+func TryParseID(s string) *ID {
+	id, err := xid.FromString(s)
+	if err != nil {
+		return nil
+	}
+	return Ptr(ID(id))
+}
 
 func mustParseID(s string) ID {
 	id, err := xid.FromString(s)
@@ -24,8 +45,12 @@ func mustParseID(s string) ID {
 
 type ID xid.ID
 
-func (id ID) String() string {
-	return xid.ID(id).String()
+func (id *ID) String() string {
+	if id == nil {
+		return ""
+	}
+
+	return xid.ID(*id).String()
 }
 
 func (id ID) MarshalCBOR() ([]byte, error) {
@@ -56,13 +81,39 @@ func (id ID) MarshalJSON() ([]byte, error) {
 }
 
 func (id *ID) UnmarshalJSON(data []byte) error {
+	if id == nil {
+		return errors.New("util.ID.UnmarshalJSON: nil pointer")
+	}
 	return (*xid.ID)(id).UnmarshalJSON(data)
+}
+
+func (id ID) MarshalText() ([]byte, error) {
+	return xid.ID(id).MarshalText()
+}
+
+func (id *ID) UnmarshalText(data []byte) error {
+	if id == nil {
+		return errors.New("util.ID.UnmarshalText: nil pointer")
+	}
+	return (*xid.ID)(id).UnmarshalText(data)
 }
 
 type UUID uuid.UUID
 
-func (id UUID) String() string {
-	return uuid.UUID(id).String()
+func NewUUID() UUID {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+	return UUID(id)
+}
+
+func (id *UUID) String() string {
+	if id == nil {
+		return ""
+	}
+
+	return uuid.UUID(*id).String()
 }
 
 func (id UUID) Base64() string {
@@ -99,4 +150,56 @@ func (id UUID) MarshalText() ([]byte, error) {
 
 func (id *UUID) UnmarshalText(data []byte) error {
 	return (*uuid.UUID)(id).UnmarshalText(data)
+}
+
+type Bytes []byte
+
+func (r Bytes) String() string {
+	return base64.RawURLEncoding.EncodeToString(r)
+}
+
+func (r Bytes) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal([]byte(r))
+}
+
+func (r *Bytes) UnmarshalCBOR(data []byte) error {
+	if r == nil {
+		return errors.New("util.Bytes: UnmarshalCBOR on nil pointer")
+	}
+	cbor.Unmarshal(data, (*[]byte)(r))
+	return nil
+}
+
+func (r Bytes) MarshalJSON() ([]byte, error) {
+	if len(r) == 0 {
+		return []byte("null"), nil
+	}
+
+	return []byte("\"" + base64.RawURLEncoding.EncodeToString(r) + "\""), nil
+}
+
+func (r *Bytes) UnmarshalJSON(data []byte) error {
+	if r == nil {
+		return errors.New("util.Bytes: UnmarshalJSON on nil pointer")
+	}
+	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+		return errors.New("util.Bytes: UnmarshalJSON with invalid data")
+	}
+	data, err := base64.RawURLEncoding.DecodeString(string(data[1 : len(data)-1]))
+	if err == nil {
+		*r = append((*r)[0:0], data...)
+	}
+	return err
+}
+
+func Unmarshal[T any](b *Bytes) (*T, error) {
+	if b == nil {
+		return nil, errors.New("nil bytes")
+	}
+
+	var v T
+	if err := cbor.Unmarshal([]byte(*b), &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }

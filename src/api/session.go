@@ -75,10 +75,11 @@ func (a *Session) UserInfo(ctx *gear.Context) error {
 	if sess == nil {
 		return gear.ErrUnauthorized.WithMsg("missing session")
 	}
-	output, err := a.blls.Session.UserInfo(ctx, *sess.UID)
+	output, err := a.blls.Session.UserInfo(ctx, sess.UID, "")
 	if err != nil {
 		return gear.ErrInternalServerError.From(err)
 	}
+	output.ID = nil // should not return id
 
 	return ctx.OkSend(output)
 }

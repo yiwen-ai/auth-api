@@ -104,8 +104,10 @@ func (c *AuthURL) GenNextUrl(u *url.URL, status int, xRequestId string) string {
 	return u.String()
 }
 
-type Userbase struct {
-	Host string `json:"host" toml:"host"`
+type Base struct {
+	Userbase   string `json:"userbase" toml:"userbase"`
+	Logbase    string `json:"logbase" toml:"logbase"`
+	Walletbase string `json:"walletbase" toml:"walletbase"`
 }
 
 type Keys struct {
@@ -140,7 +142,7 @@ type ConfigTpl struct {
 	Server         Server              `json:"server" toml:"server"`
 	Cookie         Cookie              `json:"cookie" toml:"cookie"`
 	AuthURL        AuthURL             `json:"auth_url" toml:"auth_url"`
-	Userbase       Userbase            `json:"userbase" toml:"userbase"`
+	Base           Base                `json:"base" toml:"base"`
 	Keys           Keys                `json:"keys" toml:"keys"`
 	Providers      map[string]Provider `json:"providers" toml:"providers"`
 	OSS            OSS                 `json:"oss" toml:"oss"`

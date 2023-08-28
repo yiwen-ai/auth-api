@@ -3,6 +3,7 @@ package bll
 import (
 	"context"
 
+	"github.com/yiwen-ai/auth-api/src/conf"
 	"github.com/yiwen-ai/auth-api/src/service"
 	"github.com/yiwen-ai/auth-api/src/util"
 )
@@ -13,23 +14,25 @@ func init() {
 
 // Blls ...
 type Blls struct {
-	svc *service.Userbase
-
-	AuthN   *AuthN
-	Session *Session
+	AuthN      *AuthN
+	Logbase    *Logbase
+	Session    *Session
+	Walletbase *Walletbase
 }
 
 // NewBlls ...
-func NewBlls(svc *service.Userbase, oss *service.OSS) *Blls {
+func NewBlls(oss *service.OSS) *Blls {
+	cfg := conf.Config.Base
 	return &Blls{
-		svc:     svc,
-		AuthN:   &AuthN{svc, oss},
-		Session: &Session{svc},
+		AuthN:      &AuthN{svc: service.APIHost(cfg.Userbase), oss: oss},
+		Logbase:    &Logbase{svc: service.APIHost(cfg.Logbase)},
+		Session:    &Session{svc: service.APIHost(cfg.Userbase)},
+		Walletbase: &Walletbase{svc: service.APIHost(cfg.Walletbase)},
 	}
 }
 
 func (b *Blls) Stats(ctx context.Context) (res map[string]any, err error) {
-	return b.svc.Stats(ctx)
+	return b.Session.svc.Stats(ctx)
 }
 
 type SuccessResponse[T any] struct {
@@ -43,11 +46,12 @@ type UpdateUserInput struct {
 }
 
 type UserInfo struct {
-	CN      string `json:"cn" cbor:"cn"`
-	Name    string `json:"name" cbor:"name"`
-	Locale  string `json:"locale" cbor:"locale"`
-	Picture string `json:"picture" cbor:"picture"`
-	Status  int8   `json:"status" cbor:"status"`
+	ID      *util.ID `json:"id,omitempty" cbor:"id,omitempty"` // should not return to client
+	CN      string   `json:"cn" cbor:"cn"`
+	Name    string   `json:"name" cbor:"name"`
+	Locale  string   `json:"locale" cbor:"locale"`
+	Picture string   `json:"picture" cbor:"picture"`
+	Status  int8     `json:"status" cbor:"status"`
 }
 
 type AuthNInput struct {

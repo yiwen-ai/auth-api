@@ -23,8 +23,10 @@ default_host = "www.yiwen.ltd"
 default_path = "/login/state"
 allow_hosts = ["www.yiwen.ltd"]
 
-[userbase]
-host = "http://127.0.0.1:8080"
+[base]
+userbase = "http://127.0.0.1:8080"
+logbase = "http://127.0.0.1:8080"
+walletbase = "http://127.0.0.1:8080"
 
 [keys]
 cwt_pub = "./keys/ed25519-token.pub"

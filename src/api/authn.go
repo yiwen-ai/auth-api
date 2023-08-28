@@ -131,6 +131,10 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		return ctx.Redirect(next)
 	}
 
+	if input.User.Name == "" {
+		input.User.Name = input.Sub
+	}
+
 	input.Idp = idp
 	input.Aud = provider.ClientID
 	input.ExpiresIn = a.cookie.ExpiresIn
@@ -172,6 +176,15 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		return ctx.Redirect(next)
 	}
 
+	// give award for registration
+	if res.UserCreatedAt > 0 {
+		referrer := ""
+		if c, _ := ctx.Req.Cookie("by"); c != nil {
+			referrer = c.Value
+		}
+		go a.giveAward(conf.WithGlobalCtx(ctx), res.UID, referrer)
+	}
+
 	didCookie := &http.Cookie{
 		Name:     didCookieName,
 		Value:    res.SID.String(),
@@ -198,6 +211,25 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	http.SetCookie(ctx.Res, sessCookie)
 	next := a.authURL.GenNextUrl(nextURL, 200, "")
 	return ctx.Redirect(next)
+}
+
+func (a *AuthN) giveAward(gctx context.Context, uid util.ID, referrer string) {
+	conf.Config.ObtainJob()
+	defer conf.Config.ReleaseJob()
+
+	wallet, err := a.blls.Walletbase.Get(gctx, uid)
+	if wallet != nil && wallet.Sequence == 0 {
+		var u *bll.UserInfo
+		input := &bll.AwardPayload{}
+		if u, err = a.blls.Session.UserInfo(gctx, util.TryParseID(referrer), referrer); err == nil {
+			input.Referrer = u.ID
+		}
+		_, err = a.blls.Walletbase.AwardRegistration(gctx, uid, input)
+	}
+
+	if err != nil {
+		logging.Errf("giveAward to %s error: %v", uid.String(), err)
+	}
 }
 
 func (a *AuthN) getAuthCodeURL(idp, state string) string {

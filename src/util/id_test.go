@@ -59,3 +59,27 @@ func TestUUID(t *testing.T) {
 		assert.Equal(uid, id)
 	})
 }
+
+func TestBytes(t *testing.T) {
+	bs := Bytes{0, 1, 2, 3}
+	t.Run("CBOR", func(t *testing.T) {
+		assert := assert.New(t)
+
+		data, err := cbor.Marshal(bs)
+		assert.NoError(err)
+		var b1 Bytes
+		assert.NoError(cbor.Unmarshal(data, &b1))
+		assert.Equal(bs, b1)
+	})
+
+	t.Run("JSON", func(t *testing.T) {
+		assert := assert.New(t)
+
+		data, err := json.Marshal(bs)
+		assert.NoError(err)
+		assert.Equal(strconv.Quote(bs.String()), string(data))
+		var b1 Bytes
+		assert.NoError(json.Unmarshal(data, &b1))
+		assert.Equal(bs, b1)
+	})
+}
