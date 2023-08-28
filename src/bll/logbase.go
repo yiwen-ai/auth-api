@@ -86,11 +86,12 @@ type LogPayload struct {
 
 func (b *Logbase) Log(ctx *gear.Context, action string, status int8, uid, gid util.ID, payload any) (*LogOutput, error) {
 	input := CreateLogInput{
-		UID:    uid,
-		GID:    gid,
-		Action: action,
-		Status: status,
-		IP:     ctx.IP().String(),
+		UID:     uid,
+		GID:     gid,
+		Action:  action,
+		Status:  status,
+		Payload: util.Bytes{0xa0}, // {}
+		IP:      ctx.IP().String(),
 	}
 
 	if payload != nil {

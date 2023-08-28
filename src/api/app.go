@@ -71,13 +71,13 @@ func (d *bodyParser) Parse(buf []byte, body any, mediaType, charset string) erro
 type sendObject struct{}
 
 func (s *sendObject) Send(ctx *gear.Context, code int, data any) error {
-	if strings.HasPrefix(ctx.GetHeader(gear.HeaderAccept), gear.MIMEApplicationCBOR) {
+	if strings.HasPrefix(ctx.GetHeader(gear.HeaderAccept), gear.MIMEApplicationCBOR) || strings.HasPrefix(ctx.GetHeader(gear.HeaderContentType), gear.MIMEApplicationCBOR) {
 		data, err := cbor.Marshal(data)
 		if err != nil {
 			return ctx.Error(err)
 		}
 		ctx.Type(gear.MIMEApplicationCBOR)
-		ctx.End(code, data)
+		return ctx.End(code, data)
 	}
 
 	return ctx.JSON(code, data)
