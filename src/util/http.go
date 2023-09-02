@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	userAgent = fmt.Sprintf("Go/%v auth-api", runtime.Version())
+	userAgent = fmt.Sprintf("Go/%v yiwen.ai", runtime.Version())
 }
 
 var userAgent string
@@ -64,13 +64,11 @@ var HTTPClient = &http.Client{
 	Timeout:   time.Second * 5,
 }
 
-var ErrNotFound = gear.ErrNotFound
-
 type ContextHTTPHeader http.Header
 
 func RequestJSON(ctx context.Context, cli *http.Client, method, api string, input, output any) error {
 	if ctx.Err() != nil {
-		return nil
+		return ctx.Err()
 	}
 
 	var err error
@@ -79,7 +77,7 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 		data, ok := input.([]byte)
 		if !ok {
 			if data, err = json.Marshal(input); err != nil {
-				return err
+				return gear.ErrBadRequest.From(err)
 			}
 		}
 		body = bytes.NewReader(data)
@@ -87,7 +85,7 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 
 	req, err := http.NewRequestWithContext(ctx, method, api, body)
 	if err != nil {
-		return err
+		return gear.ErrBadRequest.From(err)
 	}
 
 	req.Header.Set(gear.HeaderUserAgent, userAgent)
@@ -107,26 +105,31 @@ func RequestJSON(ctx context.Context, cli *http.Client, method, api string, inpu
 			return gear.ErrClientClosedRequest
 		}
 
-		return err
+		return gear.ErrInternalServerError.From(err)
 	}
 
 	defer resp.Body.Close()
-	if resp.StatusCode == 404 {
-		return ErrNotFound
-	}
 
 	data, err := io.ReadAll(resp.Body)
 	if resp.StatusCode > 206 || err != nil {
-		return fmt.Errorf("RequestJSON %q failed, rid: %s, code: %d, error: %v, body: %s",
-			api, rid, resp.StatusCode, err, string(data))
+		er := gear.Err.WithCode(resp.StatusCode).WithMsgf("RequestJSON failed, url: %q, rid: %s, code: %d, error: %v",
+			api, rid, resp.StatusCode, err)
+		er.Data = string(data)
+		return er
 	}
 
-	return json.Unmarshal(data, output)
+	if err = json.Unmarshal(data, output); err != nil {
+		er := gear.ErrInternalServerError.WithMsgf("RequestJSON failed, url: %q, rid: %s, code: %d, error: %v",
+			api, rid, resp.StatusCode, err)
+		er.Data = string(data)
+		return er
+	}
+	return nil
 }
 
 func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, input, output any) error {
 	if ctx.Err() != nil {
-		return nil
+		return ctx.Err()
 	}
 
 	var err error
@@ -135,7 +138,7 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		data, ok := input.([]byte)
 		if !ok {
 			if data, err = cbor.Marshal(input); err != nil {
-				return err
+				return gear.ErrBadRequest.From(err)
 			}
 		}
 		body = bytes.NewReader(data)
@@ -143,7 +146,7 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 
 	req, err := http.NewRequestWithContext(ctx, method, api, body)
 	if err != nil {
-		return err
+		return gear.ErrBadRequest.From(err)
 	}
 
 	req.Header.Set(gear.HeaderUserAgent, userAgent)
@@ -163,13 +166,10 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 			return gear.ErrClientClosedRequest
 		}
 
-		return err
+		return gear.ErrInternalServerError.From(err)
 	}
 
 	defer resp.Body.Close()
-	if resp.StatusCode == 404 {
-		return ErrNotFound
-	}
 
 	data, err := io.ReadAll(resp.Body)
 	if resp.StatusCode > 206 || err != nil {
@@ -177,11 +177,23 @@ func RequestCBOR(ctx context.Context, cli *http.Client, method, api string, inpu
 		if e != nil {
 			str = string(data)
 		}
-		return fmt.Errorf("RequestCBOR %q failed, rid: %s, code: %d, error: %v, body: %s",
-			api, rid, resp.StatusCode, err, str)
+		er := gear.Err.WithCode(resp.StatusCode).WithMsgf("RequestCBOR failed, url: %q, rid: %s, code: %d, error: %v",
+			api, rid, resp.StatusCode, err)
+		er.Data = str
+		return er
 	}
 
-	return cbor.Unmarshal(data, output)
+	if err = cbor.Unmarshal(data, output); err != nil {
+		str, e := cbor.Diagnose(data)
+		if e != nil {
+			str = string(data)
+		}
+		er := gear.ErrInternalServerError.WithMsgf("RequestCBOR failed, url: %q, rid: %s, code: %d, error: %v",
+			api, rid, resp.StatusCode, err)
+		er.Data = str
+		return er
+	}
+	return nil
 }
 
 func CopyHeader(dst http.Header, src http.Header, names ...string) {
@@ -200,4 +212,9 @@ func CopyHeader(dst http.Header, src http.Header, names ...string) {
 			}
 		}
 	}
+}
+
+func IsNotFoundErr(err error) bool {
+	er := gear.Err.From(err)
+	return er != nil && er.Code == http.StatusNotFound
 }
