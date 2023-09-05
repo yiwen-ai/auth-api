@@ -40,9 +40,8 @@ type SuccessResponse[T any] struct {
 }
 
 type UpdateUserInput struct {
-	ID        util.ID `json:"id" cbor:"id"`
-	UpdatedAt int64   `json:"updated_at" cbor:"updated_at"`
-	Picture   string  `json:"picture,omitempty" cbor:"picture,omitempty"`
+	ID      util.ID `json:"id" cbor:"id"`
+	Picture string  `json:"picture,omitempty" cbor:"picture,omitempty"`
 }
 
 type UserInfo struct {
@@ -72,6 +71,7 @@ type AuthNSessionOutput struct {
 	UID           util.ID   `json:"uid" cbor:"uid"`
 	Sub           util.UUID `json:"sub" cbor:"sub"`
 	Session       string    `json:"session" cbor:"session"`
+	Picture       string    `json:"picture" cbor:"picture"`
 	UserCreatedAt int64     `json:"user_created_at" cbor:"user_created_at"`
 }
 

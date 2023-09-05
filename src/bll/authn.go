@@ -2,6 +2,7 @@ package bll
 
 import (
 	"context"
+	"strings"
 
 	"github.com/yiwen-ai/auth-api/src/conf"
 	"github.com/yiwen-ai/auth-api/src/logging"
@@ -26,27 +27,26 @@ func (b *AuthN) LoginOrNew(ctx context.Context, input *AuthNInput) (*AuthNSessio
 }
 
 func (b *AuthN) updateUserPicture(gctx context.Context, input *AuthNSessionOutput, imgUrl string) {
-	if input.UserCreatedAt == 0 || imgUrl == "" {
+	picture := input.Sub.Base64()
+	if imgUrl == "" || (input.Picture != "" && !strings.HasSuffix(input.Picture, picture)) {
 		return
 	}
 
 	conf.Config.ObtainJob()
 	defer conf.Config.ReleaseJob()
 
-	url, err := b.oss.SavePicture(gctx, input.Sub.Base64(), imgUrl)
+	url, err := b.oss.SavePicture(gctx, picture, imgUrl)
 	if err != nil {
 		logging.Errf("SavePicture for %s error: %v", input.UID.String(), err)
 		return
 	}
 
 	update := struct {
-		ID        util.ID `json:"id" cbor:"id"`
-		UpdatedAt int64   `json:"updated_at" cbor:"updated_at"`
-		Logo      string  `json:"logo" cbor:"logo"`
+		ID   util.ID `json:"id" cbor:"id"`
+		Logo string  `json:"logo" cbor:"logo"`
 	}{
-		ID:        input.UID,
-		UpdatedAt: input.UserCreatedAt,
-		Logo:      url,
+		ID:   input.UID,
+		Logo: url,
 	}
 	output := SuccessResponse[any]{}
 	if err := b.svc.Patch(gctx, "/v1/group", &update, &output); err != nil {
@@ -56,9 +56,8 @@ func (b *AuthN) updateUserPicture(gctx context.Context, input *AuthNSessionOutpu
 	}
 
 	updateUser := UpdateUserInput{
-		ID:        input.UID,
-		UpdatedAt: input.UserCreatedAt,
-		Picture:   url,
+		ID:      input.UID,
+		Picture: url,
 	}
 	if err := b.svc.Patch(gctx, "/v1/user", &updateUser, &output); err != nil {
 		logging.Errf("updateUserPicture for %s error: %v", input.UID.String(), err)
