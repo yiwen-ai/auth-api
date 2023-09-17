@@ -49,3 +49,40 @@ func (b *Session) Delete(ctx context.Context, sid util.ID) (*SuccessResponse[boo
 	}
 	return &output, nil
 }
+
+type UpdateSpecialFieldInput struct {
+	ID        util.ID `json:"id" cbor:"id"`
+	UpdatedAt int64   `json:"updated_at" cbor:"updated_at"`
+	Status    *int8   `json:"status,omitempty" cbor:"status,omitempty"`
+	Rating    *int8   `json:"rating,omitempty" cbor:"rating,omitempty"`
+	Kind      *int8   `json:"kind,omitempty" cbor:"kind,omitempty"`
+	Email     *string `json:"email,omitempty" cbor:"email,omitempty"`
+	Phone     *string `json:"phone,omitempty" cbor:"phone,omitempty"`
+}
+
+type userInfo struct {
+	ID        util.ID `json:"id" cbor:"id"`
+	UpdatedAt int64   `json:"updated_at" cbor:"updated_at"`
+	Status    int8    `json:"status" cbor:"status"`
+}
+
+func (b *Session) DisabledUser(ctx context.Context, uid util.ID) (*SuccessResponse[bool], error) {
+	res := SuccessResponse[userInfo]{}
+	api := "/v1/user?fields=cn,name,updated_at,status&id=" + uid.String()
+	if err := b.svc.Get(ctx, api, &res); err != nil {
+		return nil, err
+	}
+	if res.Result.Status == -2 {
+		return &SuccessResponse[bool]{Result: true}, nil
+	}
+
+	output := SuccessResponse[bool]{}
+	if err := b.svc.Post(ctx, "/v1/sys/user/update_status", &UpdateSpecialFieldInput{
+		ID:        uid,
+		UpdatedAt: res.Result.UpdatedAt,
+		Status:    util.Ptr(int8(-2)),
+	}, &output); err != nil {
+		return nil, err
+	}
+	return &output, nil
+}

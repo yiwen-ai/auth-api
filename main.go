@@ -25,7 +25,7 @@ func main() {
 
 	app := api.NewApp()
 	host := "http://" + conf.Config.Server.Addr
-	logging.Infof("%s@%s start on %s", conf.AppName, conf.AppVersion, host)
+	logging.Infof("%s@%s start on %s %s", conf.AppName, conf.AppVersion, conf.Config.Env, host)
 	err := app.ListenWithContext(conf.Config.GlobalSignal, conf.Config.Server.Addr)
 	logging.Warningf("%s@%s http server closed: %v", conf.AppName, conf.AppVersion, err)
 

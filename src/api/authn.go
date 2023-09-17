@@ -187,6 +187,11 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 			Idp: util.Ptr(idp),
 			Sub: util.Ptr(input.Sub),
 		})
+
+		// disable user registration in yiwen.ltd
+		if conf.Config.Env != "prod" {
+			a.blls.Session.DisabledUser(ctx, res.UID)
+		}
 	} else {
 		a.blls.Logbase.Log(ctx, bll.LogActionUserLogin, 1, res.UID, res.UID, &bll.LogPayload{
 			Idp: util.Ptr(idp),
@@ -219,6 +224,7 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 
 	http.SetCookie(ctx.Res, sessCookie)
 	next := a.authURL.GenNextUrl(nextURL, 200, "")
+
 	return ctx.Redirect(next)
 }
 
