@@ -77,7 +77,7 @@ func (b *Session) DisabledUser(ctx context.Context, uid util.ID) (*SuccessRespon
 	}
 
 	output := SuccessResponse[bool]{}
-	if err := b.svc.Post(ctx, "/v1/sys/user/update_status", &UpdateSpecialFieldInput{
+	if err := b.svc.Patch(ctx, "/v1/sys/user/update_status", &UpdateSpecialFieldInput{
 		ID:        uid,
 		UpdatedAt: res.Result.UpdatedAt,
 		Status:    util.Ptr(int8(-2)),
