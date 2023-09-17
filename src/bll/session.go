@@ -66,23 +66,37 @@ type userInfo struct {
 	Status    int8    `json:"status" cbor:"status"`
 }
 
-func (b *Session) DisabledUser(ctx context.Context, uid util.ID) (*SuccessResponse[bool], error) {
+func (b *Session) DisabledUser(ctx context.Context, uid util.ID) (*SuccessResponse[userInfo], error) {
 	res := SuccessResponse[userInfo]{}
 	api := "/v1/user?fields=cn,name,updated_at,status&id=" + uid.String()
 	if err := b.svc.Get(ctx, api, &res); err != nil {
 		return nil, err
 	}
+
 	if res.Result.Status == -2 {
-		return &SuccessResponse[bool]{Result: true}, nil
+		return &res, nil
 	}
 
-	output := SuccessResponse[bool]{}
+	if res.Result.Status >= 0 {
+		updatedAt := res.Result.UpdatedAt
+		res = SuccessResponse[userInfo]{}
+		if err := b.svc.Patch(ctx, "/v1/sys/user/update_status", &UpdateSpecialFieldInput{
+			ID:        uid,
+			UpdatedAt: updatedAt,
+			Status:    util.Ptr(int8(-1)),
+		}, &res); err != nil {
+			return nil, err
+		}
+	}
+
+	updatedAt := res.Result.UpdatedAt
+	res = SuccessResponse[userInfo]{}
 	if err := b.svc.Patch(ctx, "/v1/sys/user/update_status", &UpdateSpecialFieldInput{
 		ID:        uid,
-		UpdatedAt: res.Result.UpdatedAt,
+		UpdatedAt: updatedAt,
 		Status:    util.Ptr(int8(-2)),
-	}, &output); err != nil {
+	}, &res); err != nil {
 		return nil, err
 	}
-	return &output, nil
+	return &res, nil
 }

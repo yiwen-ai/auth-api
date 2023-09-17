@@ -190,7 +190,9 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 
 		// disable user registration in yiwen.ltd
 		if conf.Config.Env != "prod" {
-			a.blls.Session.DisabledUser(ctx, res.UID)
+			if _, err = a.blls.Session.DisabledUser(ctx, res.UID); err != nil {
+				logging.SetTo(ctx, "error", fmt.Sprintf("DisabledUser failed: %v", err))
+			}
 		}
 	} else {
 		a.blls.Logbase.Log(ctx, bll.LogActionUserLogin, 1, res.UID, res.UID, &bll.LogPayload{
