@@ -174,6 +174,25 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 	}
 	input.DeviceDesc = strings.Join(desc, ", ")
 
+	switch idp {
+	case "wechat":
+		if coIdp, ok := a.providers["wechat_h5"]; ok {
+			input.CoAuthN = &bll.AuthNPK{
+				Idp: "wechat_h5",
+				Aud: coIdp.ClientID,
+				Sub: input.Sub,
+			}
+		}
+	case "wechat_h5":
+		if coIdp, ok := a.providers["wechat"]; ok {
+			input.CoAuthN = &bll.AuthNPK{
+				Idp: "wechat",
+				Aud: coIdp.ClientID,
+				Sub: input.Sub,
+			}
+		}
+	}
+
 	res, err := a.blls.AuthN.LoginOrNew(ctx, input)
 	if err != nil {
 		next := a.authURL.GenNextUrl(nextURL, 500, xid)

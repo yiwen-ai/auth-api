@@ -53,6 +53,12 @@ type UserInfo struct {
 	Status  int8     `json:"status" cbor:"status"`
 }
 
+type AuthNPK struct {
+	Idp string `json:"idp" cbor:"idp"`
+	Aud string `json:"aud" cbor:"aud"`
+	Sub string `json:"sub" cbor:"sub"`
+}
+
 type AuthNInput struct {
 	Idp        string   `json:"idp" cbor:"idp"`
 	Aud        string   `json:"aud" cbor:"aud"`
@@ -64,6 +70,7 @@ type AuthNInput struct {
 	DeviceDesc string   `json:"device_desc" cbor:"device_desc"`
 	Payload    []byte   `json:"payload" cbor:"payload"`
 	User       UserInfo `json:"user" cbor:"user"`
+	CoAuthN    *AuthNPK `json:"co_authn,omitempty" cbor:"co_authn,omitempty"`
 }
 
 type AuthNSessionOutput struct {
