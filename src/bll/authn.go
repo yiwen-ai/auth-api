@@ -28,7 +28,7 @@ func (b *AuthN) LoginOrNew(ctx context.Context, input *AuthNInput) (*AuthNSessio
 
 func (b *AuthN) updateUserPicture(gctx context.Context, input *AuthNSessionOutput, imgUrl string) {
 	picture := input.Sub.Base64()
-	if imgUrl == "" || (input.Picture != "" && !strings.HasSuffix(input.Picture, picture)) {
+	if imgUrl == "" || (input.Picture != "" && strings.HasPrefix(input.Picture, conf.Config.OSS.UrlBase) && !strings.HasSuffix(input.Picture, picture)) {
 		return
 	}
 

@@ -56,6 +56,11 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 				AuthURL:  "https://open.weixin.qq.com/connect/qrconnect",
 				TokenURL: "https://api.weixin.qq.com/sns/oauth2/access_token",
 			}
+		case "wechat_h5":
+			endpoint = oauth2.Endpoint{
+				AuthURL:  "https://open.weixin.qq.com/connect/oauth2/authorize",
+				TokenURL: "https://api.weixin.qq.com/sns/oauth2/access_token",
+			}
 		case "google":
 			endpoint = endpoints.Google
 		default:
@@ -253,12 +258,12 @@ func (a *AuthN) getAuthCodeURL(idp, state string) string {
 	provider := a.providers[idp]
 	uri := provider.AuthCodeURL(state)
 	switch idp {
-	case "wechat":
+	case "wechat", "wechat_h5":
 		// https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
 		uri = strings.Replace(uri, "client_id", "appid", 1)
 		uri += "#wechat_redirect"
 	}
-	fmt.Println(idp, uri)
+
 	return uri
 }
 
@@ -269,7 +274,7 @@ func (a *AuthN) exchange(ctx context.Context, idp, code string) (*bll.AuthNInput
 	rt := &bll.AuthNInput{}
 
 	switch idp {
-	case "wechat":
+	case "wechat", "wechat_h5":
 		v := url.Values{
 			"appid":      {provider.ClientID},
 			"secret":     {provider.ClientSecret},
@@ -277,6 +282,7 @@ func (a *AuthN) exchange(ctx context.Context, idp, code string) (*bll.AuthNInput
 			"grant_type": {"authorization_code"},
 		}
 		// https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
+		// https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html
 		uri := provider.Endpoint.TokenURL + "?" + v.Encode()
 
 		type wechatToken struct {

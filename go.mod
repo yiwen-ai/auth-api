@@ -7,7 +7,7 @@ require (
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/google/uuid v1.3.1
-	github.com/klauspost/compress v1.16.7
+	github.com/klauspost/compress v1.17.0
 	github.com/ldclabs/cose v1.1.2
 	github.com/mssola/useragent v1.0.0
 	github.com/rs/xid v1.5.0
