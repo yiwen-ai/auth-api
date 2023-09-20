@@ -9,6 +9,7 @@ import (
 
 	"github.com/yiwen-ai/auth-api/src/bll"
 	"github.com/yiwen-ai/auth-api/src/conf"
+	"github.com/yiwen-ai/auth-api/src/logging"
 	"github.com/yiwen-ai/auth-api/src/util"
 )
 
@@ -40,6 +41,7 @@ func newRouters(apis *APIs) []*gear.Router {
 
 	router := gear.NewRouter()
 	router.Use(func(ctx *gear.Context) error {
+		logging.SetTo(ctx, "host", ctx.Host)
 		ctxHeader := make(http.Header)
 		// inject headers into context for base service
 		util.CopyHeader(ctxHeader, ctx.Req.Header,
