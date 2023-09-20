@@ -17,6 +17,7 @@ name_prefix = "YW"
 domain = "yiwen.ltd"
 secure = false
 expires_in = 2592000 # 60*60*24*30 seconds
+wechat_domain = ""
 
 [auth_url]
 default_host = "www.yiwen.ltd"

@@ -24,6 +24,8 @@ import (
 	"github.com/yiwen-ai/auth-api/src/util"
 )
 
+const Wechat_UA = "MicroMessenger/"
+
 type AuthN struct {
 	blls       *bll.Blls
 	providers  map[string]*oauth2.Config
@@ -79,8 +81,26 @@ func NewAuth(blls *bll.Blls, cfg *conf.ConfigTpl) *AuthN {
 	return authn
 }
 
+func (a *AuthN) isInWechat(ctx *gear.Context) bool {
+	return a.cookie.WeChatDomain != "" && strings.Contains(ctx.GetHeader(gear.HeaderUserAgent), Wechat_UA)
+}
+
 func (a *AuthN) Login(ctx *gear.Context) error {
 	idp := ctx.Param("idp")
+
+	if a.isInWechat(ctx) {
+		if idp == "wechat" || !strings.HasSuffix(ctx.Host, a.cookie.WeChatDomain) {
+			reqUrl := util.Ptr(*ctx.Req.URL)
+			reqUrl.Scheme = "https"
+			reqUrl.Host = strings.Replace(ctx.Host, a.cookie.Domain, a.cookie.WeChatDomain, 1)
+			if idp == "wechat" {
+				reqUrl.Path = "/idp/wechat_h5/authorize"
+			}
+			reqUrl.RawQuery = strings.Replace(ctx.Req.URL.RawQuery, a.cookie.Domain, a.cookie.WeChatDomain, 1)
+			return ctx.Redirect(reqUrl.String())
+		}
+	}
+
 	xid := ctx.GetHeader(gear.HeaderXRequestID)
 
 	nextURL, ok := a.authURL.CheckNextUrl(ctx.Query("next_url"))
@@ -105,6 +125,9 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 	}
 
 	url := a.getAuthCodeURL(idp, state)
+	if a.isInWechat(ctx) {
+		url = strings.Replace(url, a.cookie.Domain, a.cookie.WeChatDomain, 1)
+	}
 	return ctx.Redirect(url)
 }
 
@@ -225,6 +248,12 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		})
 	}
 
+	isInWechat := a.isInWechat(ctx)
+	domain := a.cookie.Domain
+	if isInWechat {
+		domain = a.cookie.WeChatDomain
+	}
+
 	didCookie := &http.Cookie{
 		Name:     didCookieName,
 		Value:    res.SID.String(),
@@ -232,7 +261,7 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		Secure:   a.cookie.Secure,
 		MaxAge:   3600 * 24 * 366,
 		Path:     "/",
-		Domain:   a.cookie.Domain,
+		Domain:   domain,
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(ctx.Res, didCookie)
@@ -244,13 +273,84 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		Secure:   a.cookie.Secure,
 		MaxAge:   int(a.cookie.ExpiresIn),
 		Path:     "/",
-		Domain:   a.cookie.Domain,
+		Domain:   domain,
 		SameSite: http.SameSiteLaxMode,
 	}
 
 	http.SetCookie(ctx.Res, sessCookie)
 	next := a.authURL.GenNextUrl(nextURL, 200, "")
+	if isInWechat {
+		next = strings.Replace(next, a.cookie.Domain, a.cookie.WeChatDomain, 2)
+		obj := &cose.Mac0Message[key.IntMap]{
+			Unprotected: cose.Headers{},
+			Payload: key.IntMap{
+				0: time.Now().Add(20 * time.Second).Unix(),
+				1: res.SID.String(),
+				2: res.Session,
+				3: next,
+			},
+		}
 
+		if err := obj.Compute(a.stateMACer, nil); err == nil {
+			if data, err := cbor.Marshal(obj); err == nil {
+				reqUrl := &url.URL{
+					Scheme:   "https",
+					Host:     strings.Replace(ctx.Host, a.cookie.WeChatDomain, a.cookie.Domain, 1),
+					Path:     "/sync_session",
+					RawQuery: "sess=" + base64.RawURLEncoding.EncodeToString(data),
+				}
+				return ctx.Redirect(reqUrl.String())
+			}
+		}
+	}
+
+	return ctx.Redirect(next)
+}
+
+func (a *AuthN) SyncSession(ctx *gear.Context) error {
+	data, err := base64.RawURLEncoding.DecodeString(ctx.Query("sess"))
+	if err != nil {
+		return gear.ErrBadRequest.WithMsgf("invalid sess: %v", err)
+	}
+
+	obj := &cose.Mac0Message[key.IntMap]{}
+	if err = cbor.Unmarshal(data, obj); err != nil {
+		return gear.ErrBadRequest.WithMsgf("invalid sess: %v", err)
+	}
+	if err = obj.Verify(a.stateMACer, nil); err != nil {
+		return gear.ErrBadRequest.WithMsgf("invalid sess: %v", err)
+	}
+	if v, _ := obj.Payload.GetInt64(0); v < time.Now().Unix() {
+		return gear.ErrBadRequest.WithMsg("expired sess")
+	}
+	sid, _ := obj.Payload.GetString(1)
+	sess, _ := obj.Payload.GetString(2)
+	next, _ := obj.Payload.GetString(3)
+
+	didCookie := &http.Cookie{
+		Name:     a.cookie.NamePrefix + "_DID",
+		Value:    sid,
+		HttpOnly: true,
+		Secure:   a.cookie.Secure,
+		MaxAge:   3600 * 24 * 366,
+		Path:     "/",
+		Domain:   a.cookie.Domain,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(ctx.Res, didCookie)
+
+	sessCookie := &http.Cookie{
+		Name:     a.cookie.NamePrefix + "_SESS",
+		Value:    sess,
+		HttpOnly: true,
+		Secure:   a.cookie.Secure,
+		MaxAge:   int(a.cookie.ExpiresIn),
+		Path:     "/",
+		Domain:   a.cookie.Domain,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(ctx.Res, sessCookie)
 	return ctx.Redirect(next)
 }
 
@@ -397,9 +497,9 @@ func (a *AuthN) createState(idp, client_id, next_url string) (string, error) {
 	obj := &cose.Mac0Message[key.IntMap]{
 		Unprotected: cose.Headers{},
 		Payload: key.IntMap{
-			0: idp,
-			1: time.Now().Add(5 * time.Minute).Unix(),
-			2: conf.Config.Rand.Uint32(),
+			0: time.Now().Add(5 * time.Minute).Unix(),
+			1: conf.Config.Rand.Uint32(),
+			2: idp,
 			3: next_url,
 		},
 	}
@@ -428,11 +528,11 @@ func (a *AuthN) verifyState(idp, client_id, state string) (*url.URL, error) {
 	if err = obj.Verify(a.stateMACer, []byte(client_id)); err != nil {
 		return nil, err
 	}
-	if v, _ := obj.Payload.GetString(0); v != idp {
-		return nil, fmt.Errorf("invalid state for provider %q", idp)
-	}
-	if v, _ := obj.Payload.GetInt64(1); v < time.Now().Unix() {
+	if v, _ := obj.Payload.GetInt64(0); v < time.Now().Unix() {
 		return nil, fmt.Errorf("expired state")
+	}
+	if v, _ := obj.Payload.GetString(2); v != idp {
+		return nil, fmt.Errorf("invalid state for provider %q", idp)
 	}
 
 	next_url, _ := obj.Payload.GetString(3)

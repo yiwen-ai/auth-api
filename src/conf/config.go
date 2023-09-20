@@ -56,10 +56,11 @@ type Server struct {
 }
 
 type Cookie struct {
-	NamePrefix string `json:"name_prefix" toml:"name_prefix"`
-	Domain     string `json:"domain" toml:"domain"`
-	Secure     bool   `json:"secure" toml:"secure"`
-	ExpiresIn  uint   `json:"expires_in" toml:"expires_in"`
+	NamePrefix   string `json:"name_prefix" toml:"name_prefix"`
+	Domain       string `json:"domain" toml:"domain"`
+	Secure       bool   `json:"secure" toml:"secure"`
+	ExpiresIn    uint   `json:"expires_in" toml:"expires_in"`
+	WeChatDomain string `json:"wechat_domain" toml:"wechat_domain"`
 }
 
 type AuthURL struct {
