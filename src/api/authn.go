@@ -127,7 +127,7 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 	}
 
 	url := a.getAuthCodeURL(idp, state)
-	if a.isInWechat(ctx) {
+	if a.cookie.WeChatDomain != "" && strings.HasSuffix(ctx.Host, a.cookie.WeChatDomain) {
 		url = strings.Replace(url, a.cookie.Domain, a.cookie.WeChatDomain, 1)
 	}
 	return ctx.Redirect(url)
