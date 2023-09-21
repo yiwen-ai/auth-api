@@ -112,14 +112,20 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 		return ctx.Redirect(next)
 	}
 
-	provider, ok := a.providers[idp]
-	if !ok {
-		next := a.authURL.GenNextUrl(&nextURL, 400, xid)
-		logging.SetTo(ctx, "error", fmt.Sprintf("unknown provider %q", idp))
-		return ctx.Redirect(next)
+	// reduced state size
+	// state 过长会导致微信桌面端授权失败
+	if nextURL.Host == "www.yiwen.pub" || nextURL.Host == "www.yiwen.ai" {
+		nextURL.Host = ""
+		nextURL.Scheme = ""
+	}
+	qs := nextURL.Query()
+	qs.Del("by")
+	nextURL.RawQuery = ""
+	if len(qs) <= 2 {
+		nextURL.RawQuery = qs.Encode()
 	}
 
-	state, err := a.createState(idp, provider.ClientID, nextURL.String())
+	state, err := a.createState(idp, nextURL.String())
 	if err != nil {
 		next := a.authURL.GenNextUrl(&nextURL, 500, xid)
 		logging.SetTo(ctx, "error", fmt.Sprintf("failed to create state: %v", err))
@@ -147,11 +153,19 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 
 	code := ctx.Query("code")
 	state := ctx.Query("state")
-	nextURL, err := a.verifyState(idp, provider.ClientID, state)
+	nextURL, err := a.verifyState(idp, state)
 	if err != nil {
 		next := a.authURL.GenNextUrl(nil, 403, xid)
 		logging.SetTo(ctx, "error", fmt.Sprintf("invalid state: %v", err))
 		return ctx.Redirect(next)
+	}
+
+	if nextURL.Host == "" {
+		nextURL.Scheme = "https"
+		nextURL.Host = "www.yiwen.pub"
+		if strings.HasSuffix(ctx.Host, a.cookie.Domain) {
+			nextURL.Host = "www." + a.cookie.Domain
+		}
 	}
 
 	input, err := a.exchange(ctx, idp, code)
@@ -497,17 +511,16 @@ func (a *AuthN) exchange(ctx context.Context, idp, code string) (*bll.AuthNInput
 	return rt, nil
 }
 
-func (a *AuthN) createState(idp, client_id, next_url string) (string, error) {
+func (a *AuthN) createState(idp, next_url string) (string, error) {
 	obj := &cose.Mac0Message[key.IntMap]{
 		Unprotected: cose.Headers{},
 		Payload: key.IntMap{
 			0: time.Now().Add(5 * time.Minute).Unix(),
-			1: conf.Config.Rand.Uint32(),
-			2: idp,
-			3: next_url,
+			1: idp,
+			2: next_url,
 		},
 	}
-	err := obj.Compute(a.stateMACer, []byte(client_id))
+	err := obj.Compute(a.stateMACer, nil)
 	if err != nil {
 		return "", err
 	}
@@ -519,7 +532,7 @@ func (a *AuthN) createState(idp, client_id, next_url string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-func (a *AuthN) verifyState(idp, client_id, state string) (*url.URL, error) {
+func (a *AuthN) verifyState(idp, state string) (*url.URL, error) {
 	data, err := base64.RawURLEncoding.DecodeString(state)
 	if err != nil {
 		return nil, err
@@ -529,16 +542,16 @@ func (a *AuthN) verifyState(idp, client_id, state string) (*url.URL, error) {
 	if err = cbor.Unmarshal(data, obj); err != nil {
 		return nil, err
 	}
-	if err = obj.Verify(a.stateMACer, []byte(client_id)); err != nil {
+	if err = obj.Verify(a.stateMACer, nil); err != nil {
 		return nil, err
 	}
 	if v, _ := obj.Payload.GetInt64(0); v < time.Now().Unix() {
 		return nil, fmt.Errorf("expired state")
 	}
-	if v, _ := obj.Payload.GetString(2); v != idp {
+	if v, _ := obj.Payload.GetString(1); v != idp {
 		return nil, fmt.Errorf("invalid state for provider %q", idp)
 	}
 
-	next_url, _ := obj.Payload.GetString(3)
+	next_url, _ := obj.Payload.GetString(2)
 	return url.Parse(next_url)
 }
