@@ -97,7 +97,9 @@ func (a *AuthN) Login(ctx *gear.Context) error {
 				reqUrl.Path = "/idp/wechat_h5/authorize"
 			}
 			reqUrl.RawQuery = strings.Replace(ctx.Req.URL.RawQuery, a.cookie.Domain, a.cookie.WeChatDomain, 1)
-			return ctx.Redirect(reqUrl.String())
+			next := reqUrl.String()
+			logging.SetTo(ctx, "redirect_url", next)
+			return ctx.Redirect(next)
 		}
 	}
 
@@ -299,11 +301,12 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 					Path:     "/sync_session",
 					RawQuery: "sess=" + base64.RawURLEncoding.EncodeToString(data),
 				}
-				return ctx.Redirect(reqUrl.String())
+				next = reqUrl.String()
 			}
 		}
 	}
 
+	logging.SetTo(ctx, "redirect_url", next)
 	return ctx.Redirect(next)
 }
 
@@ -351,6 +354,7 @@ func (a *AuthN) SyncSession(ctx *gear.Context) error {
 	}
 
 	http.SetCookie(ctx.Res, sessCookie)
+	logging.SetTo(ctx, "redirect_url", next)
 	return ctx.Redirect(next)
 }
 
