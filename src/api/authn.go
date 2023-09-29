@@ -295,30 +295,30 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 
 	http.SetCookie(ctx.Res, sessCookie)
 	next := a.authURL.GenNextUrl(nextURL, 200, "")
-	if isInWechat {
-		next = strings.Replace(next, a.cookie.Domain, a.cookie.WeChatDomain, 2)
-		obj := &cose.Mac0Message[key.IntMap]{
-			Unprotected: cose.Headers{},
-			Payload: key.IntMap{
-				0: time.Now().Add(20 * time.Second).Unix(),
-				1: res.SID.String(),
-				2: res.Session,
-				3: next,
-			},
-		}
-
-		if err := obj.Compute(a.stateMACer, nil); err == nil {
-			if data, err := cbor.Marshal(obj); err == nil {
-				reqUrl := &url.URL{
-					Scheme:   "https",
-					Host:     strings.Replace(ctx.Host, a.cookie.WeChatDomain, a.cookie.Domain, 1),
-					Path:     "/sync_session",
-					RawQuery: "sess=" + base64.RawURLEncoding.EncodeToString(data),
-				}
-				next = reqUrl.String()
-			}
-		}
-	}
+	// if isInWechat {
+	// 	next = strings.Replace(next, a.cookie.Domain, a.cookie.WeChatDomain, 2)
+	// 	obj := &cose.Mac0Message[key.IntMap]{
+	// 		Unprotected: cose.Headers{},
+	// 		Payload: key.IntMap{
+	// 			0: time.Now().Add(20 * time.Second).Unix(),
+	// 			1: res.SID.String(),
+	// 			2: res.Session,
+	// 			3: next,
+	// 		},
+	// 	}
+	//  被微信拦截了
+	// 	if err := obj.Compute(a.stateMACer, nil); err == nil {
+	// 		if data, err := cbor.Marshal(obj); err == nil {
+	// 			reqUrl := &url.URL{
+	// 				Scheme:   "https",
+	// 				Host:     strings.Replace(ctx.Host, a.cookie.WeChatDomain, a.cookie.Domain, 1),
+	// 				Path:     "/sync_session",
+	// 				RawQuery: "sess=" + base64.RawURLEncoding.EncodeToString(data),
+	// 			}
+	// 			next = reqUrl.String()
+	// 		}
+	// 	}
+	// }
 
 	logging.SetTo(ctx, "redirect_url", next)
 	return ctx.Redirect(next)
