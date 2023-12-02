@@ -13,7 +13,7 @@ run-dev:
 	@CONFIG_FILE_PATH=${PWD}/config.toml APP_ENV=dev go run main.go
 
 test:
-	@CONFIG_FILE_PATH=${PWD}/config/test.yml APP_ENV=test go test ./...
+	@CONFIG_FILE_PATH=${PWD}/config/default.toml APP_ENV=test go test ./...
 
 lint:
 	@hash golint > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
