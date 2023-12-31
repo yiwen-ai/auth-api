@@ -50,6 +50,23 @@ func (a *Session) Verify(ctx *gear.Context) error {
 	return nil
 }
 
+func (a *Session) TryVerify(ctx *gear.Context) error {
+	if sess := a.extractSession(ctx); sess != "" {
+		output, _ := a.blls.Session.Verify(ctx, &bll.SessionInput{
+			Session:   sess,
+			Aud:       &util.JARVIS,
+			ExpiresIn: 3600,
+		})
+		if output != nil && output.UID != nil {
+			header := gear.CtxValue[util.ContextHTTPHeader](ctx)
+			http.Header(*header).Set("x-auth-user", output.UID.String())
+			ctx.WithContext(gear.CtxWith[bll.SessionOutput](ctx.Context(), output))
+		}
+	}
+
+	return nil
+}
+
 func (a *Session) AccessToken(ctx *gear.Context) error {
 	sess := a.extractSession(ctx)
 	if sess == "" {

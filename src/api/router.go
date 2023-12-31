@@ -63,6 +63,9 @@ func newRouters(apis *APIs) []*gear.Router {
 
 	router.Get("/idp/:idp/authorize", apis.AuthN.Login)
 	router.Get("/idp/:idp/callback", apis.AuthN.Callback)
+	router.Get("/passkey/get_challenge", apis.AuthN.PassKeyGetChallenge)
+	router.Post("/passkey/verify_registration", apis.Session.TryVerify, apis.AuthN.PassKeyVerifyRegistration)
+	router.Post("/passkey/verify_authentication", apis.AuthN.PassKeyVerifyAuthentication)
 	router.Get("/oauth2/authorize", todo)
 	router.Get("/oauth2/access_token", todo)
 	router.Otherwise(func(ctx *gear.Context) error {

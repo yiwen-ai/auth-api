@@ -4,9 +4,9 @@ go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/aliyun/aliyun-oss-go-sdk v3.0.1+incompatible
+	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/fxamacker/cbor/v2 v2.5.0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/klauspost/compress v1.17.4
 	github.com/ldclabs/cose v1.1.2
 	github.com/mssola/useragent v1.0.0
@@ -25,7 +25,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/teambition/trie-mux v1.5.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

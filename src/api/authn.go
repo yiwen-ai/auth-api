@@ -245,20 +245,20 @@ func (a *AuthN) Callback(ctx *gear.Context) error {
 		if c, _ := ctx.Req.Cookie("by"); c != nil {
 			referrer = c.Value
 		}
-		go a.giveAward(conf.WithGlobalCtx(ctx), res.UID, referrer)
-		a.blls.Logbase.Log(ctx, bll.LogActionSysCreateUser, 1, res.UID, res.UID, &bll.LogPayload{
+		go a.giveAward(conf.WithGlobalCtx(ctx), *res.UID, referrer)
+		a.blls.Logbase.Log(ctx, bll.LogActionSysCreateUser, 1, *res.UID, *res.UID, &bll.LogPayload{
 			Idp: util.Ptr(idp),
 			Sub: util.Ptr(input.Sub),
 		})
 
 		// disable user registration in yiwen.ltd
 		if conf.Config.Env != "prod" {
-			if _, err = a.blls.Session.DisabledUser(ctx, res.UID); err != nil {
+			if _, err = a.blls.Session.DisabledUser(ctx, *res.UID); err != nil {
 				logging.SetTo(ctx, "error", fmt.Sprintf("DisabledUser failed: %v", err))
 			}
 		}
 	} else {
-		a.blls.Logbase.Log(ctx, bll.LogActionUserLogin, 1, res.UID, res.UID, &bll.LogPayload{
+		a.blls.Logbase.Log(ctx, bll.LogActionUserLogin, 1, *res.UID, *res.UID, &bll.LogPayload{
 			Idp: util.Ptr(idp),
 			Sub: util.Ptr(input.Sub),
 		})

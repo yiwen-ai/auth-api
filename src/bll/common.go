@@ -75,18 +75,19 @@ type AuthNInput struct {
 
 type AuthNSessionOutput struct {
 	SID           util.ID   `json:"sid" cbor:"sid"`
-	UID           util.ID   `json:"uid" cbor:"uid"`
+	UID           *util.ID  `json:"uid,omitempty" cbor:"uid,omitempty"`
 	Sub           util.UUID `json:"sub" cbor:"sub"`
 	Session       string    `json:"session" cbor:"session"`
+	Name          string    `json:"name" cbor:"name"`
 	Picture       string    `json:"picture" cbor:"picture"`
 	UserCreatedAt int64     `json:"user_created_at" cbor:"user_created_at"`
 }
 
 type AuthNOutput struct {
-	Idp string  `json:"idp" cbor:"idp"`
-	Aud string  `json:"aud" cbor:"aud"`
-	Sub string  `json:"sub" cbor:"sub"`
-	UID util.ID `json:"uid" cbor:"uid"`
+	Idp string   `json:"idp" cbor:"idp"`
+	Aud string   `json:"aud" cbor:"aud"`
+	Sub string   `json:"sub" cbor:"sub"`
+	UID *util.ID `json:"uid,omitempty" cbor:"uid,omitempty"`
 }
 
 type SessionInput struct {
