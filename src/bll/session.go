@@ -42,6 +42,14 @@ func (b *Session) UserInfo(ctx context.Context, id *util.ID, cn string) (*UserIn
 	return &output.Result, nil
 }
 
+func (b *Session) UpdateUserInfo(ctx context.Context, input *UpdateUserInput) (*UserInfo, error) {
+	output := SuccessResponse[UserInfo]{}
+	if err := b.svc.Patch(ctx, "/v1/user", input, &output); err != nil {
+		return nil, err
+	}
+	return &output.Result, nil
+}
+
 func (b *Session) Delete(ctx context.Context, sid util.ID) (*SuccessResponse[bool], error) {
 	output := SuccessResponse[bool]{}
 	if err := b.svc.Delete(ctx, "/v1/session?sid="+sid.String(), &output); err != nil {

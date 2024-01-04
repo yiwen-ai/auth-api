@@ -58,6 +58,7 @@ func newRouters(apis *APIs) []*gear.Router {
 	router.Get("/healthz", apis.Healthz.Get)
 	router.Get("/access_token", apis.Session.AccessToken)
 	router.Get("/userinfo", apis.Session.Verify, apis.Session.UserInfo)
+	router.Patch("/userinfo", apis.Session.Verify, apis.Session.UpdateUserInfo)
 	router.Post("/logout", apis.Session.Verify, apis.Session.Logout)
 	router.Get("/sync_session", apis.AuthN.SyncSession)
 

@@ -55,7 +55,7 @@ func (b *AuthN) updateUserPicture(gctx context.Context, input *AuthNSessionOutpu
 	}
 
 	updateUser := UpdateUserInput{
-		ID:      *input.UID,
+		ID:      input.UID,
 		Picture: url,
 	}
 	if err := b.svc.Patch(gctx, "/v1/user", &updateUser, &output); err != nil {

@@ -101,6 +101,26 @@ func (a *Session) UserInfo(ctx *gear.Context) error {
 	return ctx.OkSend(output)
 }
 
+func (a *Session) UpdateUserInfo(ctx *gear.Context) error {
+	input := &bll.UpdateUserInput{}
+	if err := ctx.ParseBody(input); err != nil {
+		return err
+	}
+
+	sess := gear.CtxValue[bll.SessionOutput](ctx)
+	if sess == nil {
+		return gear.ErrUnauthorized.WithMsg("missing session")
+	}
+	input.ID = sess.UID
+	output, err := a.blls.Session.UpdateUserInfo(ctx, input)
+	if err != nil {
+		return gear.ErrInternalServerError.From(err)
+	}
+	output.ID = nil // should not return id
+
+	return ctx.OkSend(output)
+}
+
 func (a *Session) Logout(ctx *gear.Context) error {
 	sess := gear.CtxValue[bll.SessionOutput](ctx)
 	if sess == nil || sess.SID == nil {

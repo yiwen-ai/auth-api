@@ -3,6 +3,7 @@ package bll
 import (
 	"context"
 
+	"github.com/teambition/gear"
 	"github.com/yiwen-ai/auth-api/src/conf"
 	"github.com/yiwen-ai/auth-api/src/service"
 	"github.com/yiwen-ai/auth-api/src/util"
@@ -40,8 +41,17 @@ type SuccessResponse[T any] struct {
 }
 
 type UpdateUserInput struct {
-	ID      util.ID `json:"id" cbor:"id"`
-	Picture string  `json:"picture,omitempty" cbor:"picture,omitempty"`
+	ID      *util.ID `json:"id,omitempty" cbor:"id,omitempty"`
+	Name    string   `json:"name,omitempty" cbor:"name,omitempty" validate:"omitempty,gte=2,lte=64"`
+	Picture string   `json:"picture,omitempty" cbor:"picture,omitempty" validate:"omitempty,http_url"`
+}
+
+func (i *UpdateUserInput) Validate() error {
+	if err := util.Validator.Struct(i); err != nil {
+		return gear.ErrBadRequest.From(err)
+	}
+
+	return nil
 }
 
 type UserInfo struct {
