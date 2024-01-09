@@ -50,6 +50,19 @@ func (b *Session) UpdateUserInfo(ctx context.Context, input *UpdateUserInput) (*
 	return &output.Result, nil
 }
 
+type UserKeyDerivationInput struct {
+	ID   util.ID `json:"id" cbor:"id"`
+	Path string  `json:"path" cbor:"path"`
+}
+
+func (b *Session) DeriveUserKey(ctx context.Context, uid util.ID, path string) ([]byte, error) {
+	output := SuccessResponse[[]byte]{}
+	if err := b.svc.Post(ctx, "/v1/user/derive_key", &UserKeyDerivationInput{ID: uid, Path: path}, &output); err != nil {
+		return nil, err
+	}
+	return output.Result, nil
+}
+
 func (b *Session) Delete(ctx context.Context, sid util.ID) (*SuccessResponse[bool], error) {
 	output := SuccessResponse[bool]{}
 	if err := b.svc.Delete(ctx, "/v1/session?sid="+sid.String(), &output); err != nil {

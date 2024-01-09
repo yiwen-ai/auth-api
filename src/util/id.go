@@ -53,6 +53,10 @@ func (id *ID) String() string {
 	return xid.ID(*id).String()
 }
 
+func (id ID) Bytes() []byte {
+	return xid.ID(id).Bytes()
+}
+
 func (id ID) MarshalCBOR() ([]byte, error) {
 	return cbor.Marshal(xid.ID(id).Bytes())
 }
