@@ -30,10 +30,11 @@ func (i *RenewKEKInput) Validate() error {
 }
 
 type RenewKEKOutput struct {
-	Key       key.Key    `json:"key" cbor:"key"` // private key
-	State     util.Bytes `json:"state" cbor:"state"`
-	PrevKey   *key.Key   `json:"prev_key" cbor:"prev_key"` // private key
-	PrevStale bool       `json:"prev_stale" cbor:"prev_stale"`
+	Key       key.Key     `json:"key" cbor:"key"` // private key
+	State     util.Bytes  `json:"state" cbor:"state"`
+	KeyStale  bool        `json:"key_stale" cbor:"key_stale"`
+	NextKey   *key.Key    `json:"next_key" cbor:"next_key"` // private key
+	NextState *util.Bytes `json:"next_state" cbor:"next_state"`
 }
 
 func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
@@ -46,58 +47,75 @@ func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
 		return err
 	}
 
-	var prevKey *key.Key
-	path := DEFAULT_PATH
-	stale := false
+	output := &RenewKEKOutput{}
 	if input.State != nil {
-		issAt, p, err := a.verifyKEKState(*input.State, *sess.UID)
-		if err != nil {
-			return gear.ErrBadRequest.From(err)
-		}
-		path, err = util.NextDerivePath(p)
-		if err != nil {
-			return gear.ErrBadRequest.From(err)
-		}
-		stale = time.Now().Unix()-issAt > 3600*24
+		output.State = *input.State
 
-		prev, err := a.blls.Session.DeriveUserKey(ctx, *sess.UID, p)
+		issAt, path, err := a.verifyKEKState(*input.State, *sess.UID)
+		if err != nil {
+			return gear.ErrBadRequest.From(err)
+		}
+
+		output.KeyStale = time.Now().Unix()-issAt > 3600*24*3
+
+		res, err := a.blls.Session.DeriveUserKey(ctx, *sess.UID, path)
 		if err != nil {
 			return gear.ErrInternalServerError.From(err)
 		}
 
-		if err := cbor.Unmarshal(prev, prevKey); err != nil {
+		if err := cbor.Unmarshal(res, &output.Key); err != nil {
 			return gear.ErrInternalServerError.From(err)
 		}
 
-		verifier, err := ed25519.NewVerifier(*prevKey)
+		verifier, err := ed25519.NewVerifier(output.Key)
 		if err != nil {
 			return gear.ErrBadRequest.From(err)
 		}
 		if err := verifier.Verify(*input.State, *input.Sig); err != nil {
 			return gear.ErrBadRequest.From(err)
 		}
+
+		if output.KeyStale {
+			path, err = util.NextDerivePath(path)
+			if err != nil {
+				return gear.ErrBadRequest.From(err)
+			}
+
+			res, err = a.blls.Session.DeriveUserKey(ctx, *sess.UID, path)
+			if err != nil {
+				return gear.ErrInternalServerError.From(err)
+			}
+
+			var nextKey key.Key
+			if err := cbor.Unmarshal(res, &nextKey); err != nil {
+				return gear.ErrInternalServerError.From(err)
+			}
+
+			nextState, err := a.createKEKState(*sess.UID, path)
+			if err != nil {
+				return gear.ErrInternalServerError.From(err)
+			}
+
+			output.NextKey = &nextKey
+			output.NextState = &nextState
+		}
+
+	} else {
+		res, err := a.blls.Session.DeriveUserKey(ctx, *sess.UID, DEFAULT_PATH)
+		if err != nil {
+			return gear.ErrInternalServerError.From(err)
+		}
+		if err := cbor.Unmarshal(res, &output.Key); err != nil {
+			return gear.ErrInternalServerError.From(err)
+		}
+
+		output.State, err = a.createKEKState(*sess.UID, DEFAULT_PATH)
+		if err != nil {
+			return gear.ErrInternalServerError.From(err)
+		}
 	}
 
-	output, err := a.blls.Session.DeriveUserKey(ctx, *sess.UID, path)
-	if err != nil {
-		return gear.ErrInternalServerError.From(err)
-	}
-	var key key.Key
-	if err := cbor.Unmarshal(output, &key); err != nil {
-		return gear.ErrInternalServerError.From(err)
-	}
-
-	state, err := a.createKEKState(*sess.UID, path)
-	if err != nil {
-		return gear.ErrInternalServerError.From(err)
-	}
-
-	return ctx.OkSend(RenewKEKOutput{
-		Key:       key,
-		State:     state,
-		PrevKey:   prevKey,
-		PrevStale: stale,
-	})
+	return ctx.OkSend(output)
 }
 
 func (a *AuthN) createKEKState(uid util.ID, path string) (util.Bytes, error) {
