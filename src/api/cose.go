@@ -18,6 +18,7 @@ const DEFAULT_PATH = "m/123456789'/0'/0'/1/0"
 type RenewKEKInput struct {
 	State *util.Bytes `json:"state" cbor:"state"`
 	Sig   *util.Bytes `json:"sig" cbor:"sig"`
+	Renew bool        `json:"renew" cbor:"renew"`
 }
 
 func (i *RenewKEKInput) Validate() error {
@@ -32,7 +33,7 @@ func (i *RenewKEKInput) Validate() error {
 type RenewKEKOutput struct {
 	Key       key.Key     `json:"key" cbor:"key"` // private key
 	State     util.Bytes  `json:"state" cbor:"state"`
-	KeyStale  bool        `json:"key_stale" cbor:"key_stale"`
+	IssAt     int64       `json:"iss_at" cbor:"iss_at"`
 	NextKey   *key.Key    `json:"next_key" cbor:"next_key"` // private key
 	NextState *util.Bytes `json:"next_state" cbor:"next_state"`
 }
@@ -56,8 +57,7 @@ func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
 			return gear.ErrBadRequest.From(err)
 		}
 
-		output.KeyStale = time.Now().Unix()-issAt > 3600*24*3
-
+		output.IssAt = issAt
 		res, err := a.blls.Session.DeriveUserKey(ctx, *sess.UID, path)
 		if err != nil {
 			return gear.ErrInternalServerError.From(err)
@@ -75,7 +75,7 @@ func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
 			return gear.ErrBadRequest.From(err)
 		}
 
-		if output.KeyStale {
+		if input.Renew {
 			path, err = util.NextDerivePath(path)
 			if err != nil {
 				return gear.ErrBadRequest.From(err)
@@ -91,7 +91,7 @@ func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
 				return gear.ErrInternalServerError.From(err)
 			}
 
-			nextState, err := a.createKEKState(*sess.UID, path)
+			nextState, err := a.createKEKState(*sess.UID, path, time.Now().Unix())
 			if err != nil {
 				return gear.ErrInternalServerError.From(err)
 			}
@@ -109,20 +109,22 @@ func (a *AuthN) COSERenewKEK(ctx *gear.Context) error {
 			return gear.ErrInternalServerError.From(err)
 		}
 
-		output.State, err = a.createKEKState(*sess.UID, DEFAULT_PATH)
+		output.IssAt = time.Now().Unix()
+		output.State, err = a.createKEKState(*sess.UID, DEFAULT_PATH, output.IssAt)
 		if err != nil {
 			return gear.ErrInternalServerError.From(err)
 		}
+
 	}
 
 	return ctx.OkSend(output)
 }
 
-func (a *AuthN) createKEKState(uid util.ID, path string) (util.Bytes, error) {
+func (a *AuthN) createKEKState(uid util.ID, path string, issAt int64) (util.Bytes, error) {
 	obj := &cose.Mac0Message[key.IntMap]{
 		Unprotected: cose.Headers{},
 		Payload: key.IntMap{
-			0: time.Now().Unix(),
+			0: issAt,
 			1: uid,
 			2: path,
 		},
