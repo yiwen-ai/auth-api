@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
-	github.com/fxamacker/cbor/v2 v2.5.0
+	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/google/uuid v1.5.0
 	github.com/klauspost/compress v1.17.4
