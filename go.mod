@@ -8,7 +8,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/google/uuid v1.5.0
-	github.com/klauspost/compress v1.17.4
+	github.com/klauspost/compress v1.17.8
 	github.com/ldclabs/cose v1.2.0
 	github.com/mssola/useragent v1.0.0
 	github.com/rs/xid v1.5.0
