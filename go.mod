@@ -5,14 +5,14 @@ go 1.21
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
-	github.com/fxamacker/cbor/v2 v2.5.0
+	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/google/uuid v1.5.0
 	github.com/klauspost/compress v1.17.4
-	github.com/ldclabs/cose v1.2.0
+	github.com/ldclabs/cose v1.3.1
 	github.com/mssola/useragent v1.0.0
 	github.com/rs/xid v1.5.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/teambition/gear v1.27.3
 	go.uber.org/dig v1.17.1
 	golang.org/x/oauth2 v0.16.0
@@ -30,10 +30,10 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/teambition/trie-mux v1.5.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/crypto v0.18.0 // indirect
-	golang.org/x/net v0.20.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
